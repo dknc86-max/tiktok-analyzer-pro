@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TikTok Analyzer Pro</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+</head>
+<body>
+    <div class="background-orbs">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+
+    <main class="container">
+        <header>
+            <h1>TikTok Analyzer <span class="badge">PRO</span></h1>
+            <p>Extract protocols, habits, and actionable advice from any creator.</p>
+        </header>
+
+        <section class="glass-panel input-section">
+            <form id="analyzeForm">
+                <div class="input-group">
+                    <input type="text" id="targetInput" placeholder="Paste URL or @username" required autocomplete="off">
+                    <button type="submit" id="submitBtn">
+                        <span class="btn-text">Analyze Profile</span>
+                        <div class="loader hidden"></div>
+                    </button>
+                </div>
+                <div class="api-key-group">
+                    <input type="password" id="apiKeyInput" placeholder="Gemini API Key (optional - for premium summaries)" autocomplete="off">
+                    <button type="button" id="toggleKeyBtn">Show</button>
+                </div>
+            </form>
+        </section>
+
+        <section id="progressSection" class="glass-panel hidden">
+            <div class="progress-header">
+                <h3 id="progressTitle">Initializing...</h3>
+                <span id="progressPercentage">0%</span>
+            </div>
+            <div class="progress-track">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <p id="progressMessage" class="progress-msg">Connecting to servers...</p>
+        </section>
+
+        <section id="resultsSection" class="hidden">
+            <div class="results-header">
+                <h2>Extracted Protocols</h2>
+                <div class="actions-group">
+                    <button id="synthesizeBtn" style="background: linear-gradient(135deg, var(--accent-glow), var(--accent-glow-secondary)); border: none; margin-right: 0.5rem;">🧬 Generate Synthesized Stacks</button>
+                    <button id="downloadBtn" class="secondary-btn">Download NotebookLM File</button>
+                </div>
+            </div>
+            
+            <div class="filter-panel glass-panel">
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="🔍 Search protocols, compounds, or dosages...">
+                </div>
+                <div id="categoryTabs" class="category-tabs">
+                    <!-- Dynamic Category buttons will be injected here -->
+                </div>
+            </div>
+            
+            <div id="cardsGrid" class="cards-grid">
+                <!-- Cards will be injected here via JS -->
+            </div>
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
