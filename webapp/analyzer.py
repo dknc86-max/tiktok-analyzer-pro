@@ -24,11 +24,11 @@ except ImportError:
     USE_FASTER = False
     print("Web app using standard whisper")
 
-# Inject ffmpeg binary into PATH
+# Inject ffmpeg binary into PATH dynamically using imageio_ffmpeg
 try:
     import imageio_ffmpeg
-    local_bin = os.path.abspath("../local_bin")
-    os.environ["PATH"] = local_bin + os.pathsep + os.environ.get("PATH", "")
+    ffmpeg_dir = os.path.dirname(imageio_ffmpeg.get_ffmpeg_exe())
+    os.environ["PATH"] = ffmpeg_dir + os.pathsep + os.environ.get("PATH", "")
 except ImportError:
     pass
 

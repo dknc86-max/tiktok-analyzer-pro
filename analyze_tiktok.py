@@ -16,9 +16,13 @@ except ImportError:
 
 warnings.filterwarnings("ignore")
 
-# Inject ffmpeg binary into PATH for Whisper
-local_bin = os.path.abspath("local_bin")
-os.environ["PATH"] = local_bin + os.pathsep + os.environ.get("PATH", "")
+# Inject ffmpeg binary into PATH for Whisper dynamically using imageio_ffmpeg
+try:
+    import imageio_ffmpeg
+    ffmpeg_dir = os.path.dirname(imageio_ffmpeg.get_ffmpeg_exe())
+    os.environ["PATH"] = ffmpeg_dir + os.pathsep + os.environ.get("PATH", "")
+except ImportError:
+    pass
 
 def get_video_entries(profile_url):
     print("Fetching profile metadata...")
