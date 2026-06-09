@@ -867,55 +867,87 @@ document.addEventListener('DOMContentLoaded', () => {
         const nodes = [];
         const edges = [];
 
-        // 1. Root node
+        // Modern Tailwind-inspired palette for category branches
+        const CATEGORY_COLORS = {
+            'peptide_protocol': { line: '#A855F7', text: '#8B5CF6' }, // Purple
+            'peptide_info': { line: '#EC4899', text: '#D946EF' },     // Pink
+            'glp1_fat_loss': { line: '#EF4444', text: '#E11D48' },    // Red/Coral
+            'hormones': { line: '#3B82F6', text: '#1D4ED8' },         // Blue
+            'mitochondria': { line: '#10B981', text: '#059669' },     // Emerald Green
+            'nutrition': { line: '#F59E0B', text: '#D97706' },        // Amber
+            'wellness_mindset': { line: '#06B6D4', text: '#0891B2' }, // Cyan
+            'fitness': { line: '#F97316', text: '#EA580C' },          // Orange
+            'industry_news': { line: '#64748B', text: '#475569' },    // Slate
+            'general_advice': { line: '#6366F1', text: '#4F46E5' }    // Indigo
+        };
+
+        // 1. Root node: Styled as a neumorphic white pill card with dark slate text
         const targetLabel = targetInput.value.trim() || "@jacobnach";
         nodes.push({
             id: 'root',
-            label: targetLabel,
-            shape: 'ellipse',
+            label: `<b>${targetLabel}</b>`,
+            shape: 'box',
+            level: 0,
             color: {
-                background: '#166534',
-                border: '#14532D',
-                highlight: { background: '#15803D', border: '#064E3B' }
+                background: '#FFFFFF',
+                border: '#E2E8F0',
+                highlight: { background: '#FFFFFF', border: '#CBD5E1' }
             },
-            font: { size: 18, color: '#FFFFFF', bold: true },
-            value: 40,
-            title: 'Creator Node'
+            font: { 
+                size: 15, 
+                color: '#0F172A', 
+                face: 'Outfit',
+                multi: 'html',
+                bold: true
+            },
+            margin: { top: 12, bottom: 12, left: 20, right: 20 },
+            borderWidth: 1.5,
+            shadow: {
+                enabled: true,
+                color: 'rgba(15, 23, 42, 0.08)',
+                size: 10,
+                x: 0,
+                y: 4
+            }
         });
 
-        // 2. Category nodes and root edges
+        // 2. Category nodes: Styled as text-only nodes with brand coloring
         const categoryMap = new Map();
         Object.entries(analyticsData.categoryCounts).forEach(([cat, count]) => {
             const label = CATEGORY_LABELS[cat] || cat;
             const cleanLabel = label.replace(/^[^\s]+\s+/, '');
             const nodeId = `cat_${cat}`;
+            const colors = CATEGORY_COLORS[cat] || { line: '#64748B', text: '#475569' };
             
             nodes.push({
                 id: nodeId,
-                label: cleanLabel,
-                shape: 'box',
-                color: {
-                    background: '#FFFFFF',
-                    border: '#E5E7EB',
-                    highlight: { background: '#F0FDF4', border: '#22C55E' }
-                },
-                font: { size: 14, color: '#1F2937' },
-                value: 20 + count * 2,
-                title: `${count} videos in category ${cleanLabel}`
+                label: `<b>${cleanLabel}</b>`,
+                shape: 'text',
+                level: 1,
+                font: { 
+                    size: 14, 
+                    color: colors.text, 
+                    face: 'Outfit',
+                    multi: 'html'
+                }
             });
 
+            // Connect root to category with a colored line
             edges.push({
                 from: 'root',
                 to: nodeId,
-                length: 120
+                width: 2.5,
+                color: colors.line,
+                arrows: { to: { enabled: false } }
             });
 
             categoryMap.set(cat, nodeId);
         });
 
-        // 3. Topic nodes
+        // 3. Topic/Compound nodes
         const compoundMap = new Map();
         
+        // Build map of compounds and gather suggestions
         cachedResults.forEach(video => {
             const cat = video.category || 'general_advice';
             const catNodeId = categoryMap.get(cat);
@@ -925,24 +957,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const compounds = parseKeyConceptsFromText(videoText, dynamicTopicsList);
 
             compounds.forEach(comp => {
-                const count = analyticsData.compoundCounts[comp] || 1;
                 const nodeId = `comp_${comp.toLowerCase()}`;
-                
                 if (!compoundMap.has(nodeId)) {
-                    const colors = getTopicColors(comp);
-                    nodes.push({
-                        id: nodeId,
-                        label: comp,
-                        shape: 'dot',
-                        color: {
-                            background: colors.background,
-                            border: colors.border,
-                            highlight: colors.highlight
-                        },
-                        font: { size: 12, color: colors.font },
-                        value: 12 + count * 3,
-                        title: `${comp}: Mentioned ${count} times`
-                    });
                     compoundMap.set(nodeId, {
                         name: comp,
                         categories: new Set(),
@@ -960,15 +976,58 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        // Category -> Compound connections
+        // Inject leaf nodes: Styled as plain, left-aligned text blocks with first suggestion as detail
         compoundMap.forEach((data, nodeId) => {
+            // Find a descriptive snippet to display next to the compound name
+            let desc = "";
+            for (const vid of data.videos) {
+                if (vid.suggestions && vid.suggestions.length > 0) {
+                    const match = vid.suggestions.find(s => s.toLowerCase().includes(data.name.toLowerCase()));
+                    if (match) {
+                        desc = match;
+                        break;
+                    }
+                }
+            }
+            if (!desc && data.videos.length > 0 && data.videos[0].suggestions && data.videos[0].suggestions.length > 0) {
+                desc = data.videos[0].suggestions[0];
+            }
+            if (!desc) {
+                desc = `Analyzed across ${data.videos.length} clips.`;
+            }
+
+            // Standardize text format
+            desc = desc.replace(/^-\s*/, '').trim();
+            if (desc.length > 68) {
+                desc = desc.substring(0, 65) + "...";
+            }
+
+            // Push the leaf node
+            nodes.push({
+                id: nodeId,
+                label: `<b>${data.name}:</b> ${desc}`,
+                shape: 'text',
+                level: 2,
+                font: {
+                    size: 12,
+                    color: '#334155', // Slate dark text
+                    face: 'Outfit',
+                    multi: 'html',
+                    align: 'left' // Align text left like a list
+                }
+            });
+
+            // Connect parent category nodes to this compound
             data.categories.forEach(cat => {
                 const catNodeId = categoryMap.get(cat);
+                const colors = CATEGORY_COLORS[cat] || { line: '#CBD5E1' };
                 if (catNodeId) {
                     edges.push({
                         from: catNodeId,
                         to: nodeId,
-                        length: 80
+                        width: 1.5,
+                        color: colors.line,
+                        arrows: { to: { enabled: false } }
                     });
                 }
             });
@@ -982,45 +1041,26 @@ document.addEventListener('DOMContentLoaded', () => {
             edges: visEdges
         };
 
+        // Layout options: LR Directed Tree structure with horizontal Bezier connections
         const networkOptions = {
-            nodes: {
-                scaling: {
-                    min: 10,
-                    max: 40
-                },
-                shadow: {
-                    enabled: true,
-                    color: 'rgba(0,0,0,0.4)',
-                    size: 6,
-                    x: 2,
-                    y: 2
+            layout: {
+                hierarchical: {
+                    direction: 'LR',
+                    sortMethod: 'directed',
+                    levelSeparation: 320, // Horizontal column gap
+                    nodeSpacing: 50,     // Vertical gap in columns
+                    treeSpacing: 80,
+                    blockShifting: true,
+                    edgeMinimization: true,
+                    parentCentralization: true
                 }
             },
+            physics: false, // Turn off active force physics to keep layout static & rigid
             edges: {
-                width: 2,
-                color: {
-                    color: '#E2E8F0',
-                    highlight: '#111111',
-                    hover: '#666666'
-                },
                 smooth: {
                     type: 'cubicBezier',
-                    forceDirection: 'vertical',
-                    roundness: 0.4
-                }
-            },
-            physics: {
-                barnesHut: {
-                    gravitationalConstant: -2000,
-                    centralGravity: 0.3,
-                    springLength: 150,
-                    springConstant: 0.02,
-                    damping: 0.5,
-                    avoidOverlap: 0.2
-                },
-                stabilization: {
-                    iterations: 200,
-                    fit: true
+                    forceDirection: 'horizontal', // Horizontal bezier handles for LR mapping
+                    roundness: 0.6
                 }
             },
             interaction: {
@@ -1035,10 +1075,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         mindmapNetworkInstance = new vis.Network(mindmapNetwork, networkData, networkOptions);
-
-        mindmapNetworkInstance.on("stabilizationIterationsDone", function () {
-            mindmapNetworkInstance.setOptions({ physics: false });
-        });
 
         // Click handler for side panel details drawer
         mindmapNetworkInstance.on("click", function (params) {
