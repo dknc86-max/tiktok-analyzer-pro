@@ -346,12 +346,66 @@ def summarize_transcripts(transcripts_file, output_file):
                 out.write(f"- {sug}\n")
             out.write("\n")
 
+def extract_video_id(url):
+    if not url:
+        return None
+    match = re.search(r'/video/(\d+)', url)
+    if match:
+        return match.group(1)
+    match = re.search(r'\b\d{18,22}\b', url)
+    if match:
+        return match.group(0)
+    return None
+
+
+def load_transcript_cache(filepath):
+    cache = {}
+    if not os.path.exists(filepath):
+        return cache
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            content = f.read()
+        blocks = content.split('\n## ')[1:]
+        for block in blocks:
+            lines = block.strip().split('\n')
+            if not lines:
+                continue
+            title = lines[0].strip()
+            url = ""
+            transcript_lines = []
+            for line in lines[1:]:
+                if line.startswith('URL:'):
+                    url = line.replace('URL:', '').strip()
+                elif line.strip():
+                    transcript_lines.append(line.strip())
+            
+            transcript = ' '.join(transcript_lines)
+            transcript = re.sub(r'\s+', ' ', transcript).strip()
+            
+            video_id = extract_video_id(url)
+            if video_id:
+                cache[video_id] = transcript
+    except Exception as e:
+        print(f"Error loading transcript cache: {e}")
+    return cache
+
+
+def append_to_transcripts_file(filepath, title, url, transcript):
+    try:
+        with open(filepath, "a", encoding="utf-8") as f:
+            f.write(f"\n## {title}\nURL: {url}\n\n{transcript}\n\n")
+    except Exception as e:
+        print(f"Error appending to transcripts: {e}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Download, transcribe, and summarize a TikTok profile.")
     parser.add_argument("target", help="The TikTok profile URL (e.g., https://www.tiktok.com/@username) or just the @username")
+    parser.add_argument("--limit", type=int, default=50, help="Maximum number of videos to download and transcribe (default: 50, use 0 for all)")
     args = parser.parse_args()
 
     target = args.target
+    limit = args.limit
     if not target.startswith("http"):
         # Assume it's a username
         if not target.startswith("@"):
@@ -371,14 +425,25 @@ def main():
     transcripts_file = os.path.join(output_dir, "transcripts.md")
     summaries_file = os.path.join(output_dir, "detailed_summaries.md")
 
+    # Load caches
+    global_transcripts = "/Users/denis/.gemini/antigravity-ide/scratch/tiktok_summarizer/transcripts.md"
+    cache = load_transcript_cache(global_transcripts)
+    if os.path.exists(transcripts_file):
+        cache.update(load_transcript_cache(transcripts_file))
+
     entries = get_video_entries(profile_url)
     
     if not entries:
         print("No videos found. Check the profile URL.")
         sys.exit(1)
         
+    if limit and limit > 0:
+        entries = entries[:limit]
+        
     print(f"Found {len(entries)} videos. Loading Whisper model...")
-    model = whisper.load_model("tiny.en")
+    import torch
+    device = "mps" if torch.backends.mps.is_available() else "cpu"
+    model = whisper.load_model("tiny.en", device=device)
     
     with open(transcripts_file, "w", encoding="utf-8") as f:
         f.write(f"# TikTok Transcripts for {username}\n\n")
@@ -389,8 +454,17 @@ def main():
             continue
             
         title = entry.get('title', f"Video {idx+1}")
-        tqdm.write(f"\n[{idx+1}/{len(entries)}] Processing: {title}")
         
+        # Check cache
+        video_id = extract_video_id(video_url)
+        if video_id and video_id in cache:
+            tqdm.write(f"\n[{idx+1}/{len(entries)}] [CACHE HIT] Loading: {title}")
+            transcript = cache[video_id]
+            with open(transcripts_file, "a", encoding="utf-8") as f:
+                f.write(f"## {title}\nURL: {video_url}\n\n{transcript}\n\n")
+            continue
+
+        tqdm.write(f"\n[{idx+1}/{len(entries)}] Transcribing: {title}")
         audio_path = f"tmp_audio_{idx}.mp3"
         try:
             download_audio(video_url, audio_path)
@@ -399,6 +473,12 @@ def main():
             
             with open(transcripts_file, "a", encoding="utf-8") as f:
                 f.write(f"## {title}\nURL: {video_url}\n\n{transcript}\n\n")
+                
+            # Append to global cache
+            append_to_transcripts_file(global_transcripts, title, video_url, transcript)
+            # Add to local memory cache in case of duplicates in same profile run
+            if video_id:
+                cache[video_id] = transcript
                 
         except Exception as e:
             tqdm.write(f"Error on video {idx+1}: {e}")

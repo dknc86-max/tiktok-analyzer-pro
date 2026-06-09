@@ -88,6 +88,7 @@ Compiled from transcript sequence matches:
 
 ### Selank
 * *In [Screen time heinous](https://www.tiktok.com/@jacobnach/video/7647575950921714975)*: "Now, if all that fails and you're still tweaked, the ultimate hack is Selank."
+* *In [Lock in lock in lock in](https://www.tiktok.com/@jacobnach/video/7649073846229716254)*: "Not the dumb kinder, thinking about,  I'm talking about the C-Max-Selank combo."
 
 ### Semax
 * *In [Fasting is goated](https://www.tiktok.com/@jacobnach/video/7638677005143231775)*: "Intermittent fasting also stimulates our production of BDNF brain-derived naturopic factor, which is the same chemical we're trying to produce when we inject things like Semax or die hexa to improve our focus and memory."

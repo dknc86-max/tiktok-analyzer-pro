@@ -12,10 +12,11 @@ def analyze():
     data = request.json
     target = data.get('target')
     api_key = data.get('api_key')
+    max_videos = data.get('max_videos', 50)
     if not target:
         return jsonify({"error": "Target is required"}), 400
         
-    job_id = start_analysis(target, api_key=api_key)
+    job_id = start_analysis(target, api_key=api_key, max_videos=max_videos)
     return jsonify({"job_id": job_id})
 
 @app.route('/api/status/<job_id>', methods=['GET'])
