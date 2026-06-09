@@ -643,7 +643,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 height: 320,
                 background: 'transparent',
                 toolbar: { show: false },
-                foreColor: 'var(--text-secondary)'
+                foreColor: '#111111'
             },
             plotOptions: {
                 bar: {
@@ -653,7 +653,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     distributed: true
                 }
             },
-            colors: ['#6366f1', '#ec4899', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#a855f7', '#14b8a6', '#06b6d4', '#db2777'],
+            colors: ['#FFD500', '#111111', '#065f46', '#9a3412', '#0c4a6e', '#831843', '#10b981', '#f59e0b', '#0ea5e9'],
             dataLabels: {
                 enabled: true,
                 textAnchor: 'start',
@@ -668,7 +668,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 offsetX: 10
             },
             grid: {
-                borderColor: 'rgba(255, 255, 255, 0.05)',
+                borderColor: '#E2E8F0',
                 xaxis: { lines: { show: true } }
             },
             xaxis: {
@@ -681,7 +681,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 labels: { show: false }
             },
             tooltip: {
-                theme: 'dark',
+                theme: 'light',
                 y: {
                     title: {
                         formatter: () => 'Mentions'
@@ -720,12 +720,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 type: 'donut',
                 height: 320,
                 background: 'transparent',
-                foreColor: 'var(--text-secondary)'
+                foreColor: '#111111'
             },
             stroke: {
                 show: false
             },
-            colors: ['#6366f1', '#ec4899', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#a855f7', '#f43f5e', '#14b8a6', '#06b6d4', '#eab308'],
+            colors: ['#FFD500', '#111111', '#065f46', '#9a3412', '#0c4a6e', '#831843', '#10b981', '#f59e0b', '#0ea5e9'],
             legend: {
                 position: 'bottom',
                 fontFamily: 'Outfit, sans-serif',
@@ -740,7 +740,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             },
             tooltip: {
-                theme: 'dark'
+                theme: 'light'
             },
             plotOptions: {
                 pie: {
@@ -757,14 +757,14 @@ document.addEventListener('DOMContentLoaded', () => {
                             value: {
                                 show: true,
                                 fontFamily: 'Outfit, sans-serif',
-                                color: '#fff',
+                                color: '#111111',
                                 formatter: (val) => val
                             },
                             total: {
                                 show: true,
                                 label: 'Total Videos',
                                 fontFamily: 'Outfit, sans-serif',
-                                color: 'var(--text-secondary)',
+                                color: '#666666',
                                 formatter: function (w) {
                                     return w.globals.seriesTotals.reduce((a, b) => a + b, 0);
                                 }
@@ -874,11 +874,11 @@ document.addEventListener('DOMContentLoaded', () => {
             label: targetLabel,
             shape: 'ellipse',
             color: {
-                background: '#4f46e5',
-                border: '#818cf8',
-                highlight: { background: '#6366f1', border: '#a5b4fc' }
+                background: '#FFD500',
+                border: '#EAB308',
+                highlight: { background: '#FACC15', border: '#CA8A04' }
             },
-            font: { size: 18, color: '#fff', bold: true },
+            font: { size: 18, color: '#111111', bold: true },
             value: 40,
             title: 'Creator Node'
         });
@@ -895,11 +895,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 label: cleanLabel,
                 shape: 'box',
                 color: {
-                    background: '#1e1b4b',
-                    border: '#3730a3',
-                    highlight: { background: '#312e81', border: '#4f46e5' }
+                    background: '#111111',
+                    border: '#000000',
+                    highlight: { background: '#333333', border: '#111111' }
                 },
-                font: { size: 14, color: '#c7d2fe' },
+                font: { size: 14, color: '#FFFFFF' },
                 value: 20 + count * 2,
                 title: `${count} videos in category ${cleanLabel}`
             });
@@ -999,9 +999,9 @@ document.addEventListener('DOMContentLoaded', () => {
             edges: {
                 width: 2,
                 color: {
-                    color: 'rgba(255,255,255,0.1)',
-                    highlight: '#6366f1',
-                    hover: '#ec4899'
+                    color: '#E2E8F0',
+                    highlight: '#111111',
+                    hover: '#666666'
                 },
                 smooth: {
                     type: 'cubicBezier',
