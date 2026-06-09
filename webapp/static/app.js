@@ -565,8 +565,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function processAnalyticsData() {
         if (!cachedResults || cachedResults.length === 0) return;
 
-        // Run dynamic tokenizer to find domain keywords for non-peptide profiles
-        dynamicTopicsList = extractDynamicTopics(cachedResults);
+        // Bypassing dynamic single-word tokenization to focus on high-context topics/phrases
+        dynamicTopicsList = [];
 
         const data = {
             totalVideos: cachedResults.length,
@@ -584,9 +584,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const cat = video.category || 'general_advice';
             data.categoryCounts[cat] = (data.categoryCounts[cat] || 0) + 1;
 
-            // Extract key concepts using both predefined categories and dynamically tokenized concepts
+            // Extract key concepts using predefined lists
             const videoText = video.title + ' ' + video.topic + ' ' + video.suggestions.join(' ');
-            const compounds = parseKeyConceptsFromText(videoText, dynamicTopicsList);
+            let compounds = parseKeyConceptsFromText(videoText, []);
+            
+            // Fallback to the video topic phrase if no predefined keywords match
+            if (compounds.length === 0 && video.topic) {
+                const cleanTopic = video.topic.replace(/^[^\w\s\-\#\@\$\%\&\*\(\)\+]+/, '').trim();
+                if (cleanTopic.length > 0) {
+                    compounds = [cleanTopic];
+                }
+            }
             
             compounds.forEach(comp => {
                 data.compoundCounts[comp] = (data.compoundCounts[comp] || 0) + 1;
@@ -911,18 +919,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const nodes = [];
         const edges = [];
 
-        // Modern Tailwind-inspired palette for category branches
+        // Premium Tailwind-inspired palette for category branches
         const CATEGORY_COLORS = {
-            'peptide_protocol': { line: '#A855F7', text: '#8B5CF6' }, // Purple
-            'peptide_info': { line: '#EC4899', text: '#D946EF' },     // Pink
-            'glp1_fat_loss': { line: '#EF4444', text: '#E11D48' },    // Red/Coral
-            'hormones': { line: '#3B82F6', text: '#1D4ED8' },         // Blue
-            'mitochondria': { line: '#10B981', text: '#059669' },     // Emerald Green
-            'nutrition': { line: '#F59E0B', text: '#D97706' },        // Amber
-            'wellness_mindset': { line: '#06B6D4', text: '#0891B2' }, // Cyan
-            'fitness': { line: '#F97316', text: '#EA580C' },          // Orange
-            'industry_news': { line: '#64748B', text: '#475569' },    // Slate
-            'general_advice': { line: '#6366F1', text: '#4F46E5' }    // Indigo
+            'peptide_protocol': { line: '#8B5CF6', border: '#8B5CF6', bg: '#F3E8FF', text: '#5B21B6' }, // Purple
+            'peptide_info': { line: '#D946EF', border: '#D946EF', bg: '#FDF4FF', text: '#86198F' },     // Pink
+            'glp1_fat_loss': { line: '#EF4444', border: '#EF4444', bg: '#FEF2F2', text: '#991B1B' },    // Coral/Red
+            'hormones': { line: '#3B82F6', border: '#3B82F6', bg: '#EFF6FF', text: '#1E40AF' },         // Blue
+            'mitochondria': { line: '#10B981', border: '#10B981', bg: '#ECFDF5', text: '#065F46' },     // Emerald Green
+            'nutrition': { line: '#F59E0B', border: '#F59E0B', bg: '#FFFBEB', text: '#92400E' },        // Amber
+            'wellness_mindset': { line: '#06B6D4', border: '#06B6D4', bg: '#ECFEFF', text: '#075985' }, // Cyan
+            'fitness': { line: '#F97316', border: '#F97316', bg: '#FFF7ED', text: '#9A3412' },          // Orange
+            'industry_news': { line: '#64748B', border: '#64748B', bg: '#F8FAFC', text: '#334155' },    // Slate
+            'general_advice': { line: '#6366F1', border: '#6366F1', bg: '#EEF2FF', text: '#3730A3' }    // Indigo
         };
 
         // 1. Root node: Styled as a neumorphic white pill card with dark slate text
@@ -946,6 +954,9 @@ document.addEventListener('DOMContentLoaded', () => {
             },
             margin: { top: 12, bottom: 12, left: 20, right: 20 },
             borderWidth: 1.5,
+            shapeProperties: {
+                borderRadius: 10
+            },
             shadow: {
                 enabled: true,
                 color: 'rgba(15, 23, 42, 0.08)',
@@ -955,24 +966,42 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // 2. Category nodes: Styled as text-only nodes with brand coloring
+        // 2. Category nodes: Styled as neat rounded pills with brand coloring
         const categoryMap = new Map();
         Object.entries(analyticsData.categoryCounts).forEach(([cat, count]) => {
             const label = CATEGORY_LABELS[cat] || cat;
             const cleanLabel = label.replace(/^[^\s]+\s+/, '');
             const nodeId = `cat_${cat}`;
-            const colors = CATEGORY_COLORS[cat] || { line: '#64748B', text: '#475569' };
+            const colors = CATEGORY_COLORS[cat] || { line: '#6366F1', border: '#6366F1', bg: '#EEF2FF', text: '#3730A3' };
             
             nodes.push({
                 id: nodeId,
                 label: `<b>${cleanLabel}</b>`,
-                shape: 'text',
+                shape: 'box',
                 level: 1,
+                color: {
+                    background: colors.bg,
+                    border: colors.border,
+                    highlight: { background: colors.bg, border: colors.border }
+                },
                 font: { 
-                    size: 14, 
+                    size: 13, 
                     color: colors.text, 
                     face: 'Outfit',
-                    multi: 'html'
+                    multi: 'html',
+                    bold: true
+                },
+                margin: { top: 8, bottom: 8, left: 18, right: 18 },
+                borderWidth: 1.5,
+                shapeProperties: {
+                    borderRadius: 20 // full pill shape
+                },
+                shadow: {
+                    enabled: true,
+                    color: 'rgba(0, 0, 0, 0.03)',
+                    size: 6,
+                    x: 0,
+                    y: 3
                 }
             });
 
@@ -998,25 +1027,35 @@ document.addEventListener('DOMContentLoaded', () => {
             const catNodeId = categoryMap.get(cat);
             if (!catNodeId) return;
 
+            // Extract key concepts using predefined lists
             const videoText = video.title + ' ' + video.topic + ' ' + video.suggestions.join(' ');
-            const compounds = parseKeyConceptsFromText(videoText, dynamicTopicsList);
+            let compounds = parseKeyConceptsFromText(videoText, []);
+            
+            // Fallback to the video topic phrase if no predefined keywords match
+            if (compounds.length === 0 && video.topic) {
+                const cleanTopic = video.topic.replace(/^[^\w\s\-\#\/\@\$\%\&\*\(\)\+]+/, '').trim();
+                if (cleanTopic.length > 0) {
+                    compounds = [cleanTopic];
+                }
+            }
 
             if (!categoryCompounds[cat]) {
                 categoryCompounds[cat] = [];
             }
 
             compounds.forEach(comp => {
-                const nodeId = `comp_${comp.toLowerCase()}`;
+                const nodeId = `comp_${cat}_${comp.toLowerCase()}`; // Unique category-specific ID to prevent cross-category edges
                 if (!compoundMap.has(nodeId)) {
                     compoundMap.set(nodeId, {
+                        id: nodeId,
                         name: comp,
-                        categories: new Set(),
+                        category: cat,
+                        categories: new Set([cat]), // compatibility with sidebar badge renderer
                         videos: []
                     });
                 }
                 
                 const compData = compoundMap.get(nodeId);
-                compData.categories.add(cat);
                 compData.videos.push({
                     title: video.title,
                     url: video.url,
@@ -1043,7 +1082,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Keep top 6
             const topComps = sortedComps.slice(0, 6);
             activeCategoryToCompounds[cat] = topComps;
-            topComps.forEach(c => activeCompounds.add(`comp_${c.toLowerCase()}`));
+            topComps.forEach(c => activeCompounds.add(`comp_${cat}_${c.toLowerCase()}`));
         });
 
         // Inject leaf nodes (top 6 compounds only)
@@ -1075,18 +1114,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 desc = desc.substring(0, 52) + "...";
             }
 
-            // Push the leaf node: Left-aligned list item with word constraint wrapping
+            const colors = CATEGORY_COLORS[data.category] || { line: '#6366F1', border: '#6366F1', bg: '#EEF2FF', text: '#3730A3' };
+
+            // Push the leaf node: Left-aligned list item with word constraint wrapping inside a neat card
             nodes.push({
                 id: nodeId,
-                label: `<b>${data.name}:</b> ${desc}`,
-                shape: 'text',
+                label: `<b>${data.name}</b>\n<font size="11" color="#475569">${desc}</font>`,
+                shape: 'box',
                 level: 2,
+                color: {
+                    background: colors.bg,
+                    border: colors.border,
+                    highlight: { background: colors.bg, border: colors.border }
+                },
                 font: {
                     size: 13,
-                    color: '#334155', // Slate dark text
+                    color: colors.text,
                     face: 'Outfit',
                     multi: 'html',
-                    align: 'left' // Align text left like a list
+                    align: 'left' // Align text left like a card
+                },
+                margin: { top: 10, bottom: 10, left: 15, right: 15 },
+                borderWidth: 1.5,
+                shapeProperties: {
+                    borderRadius: 8
+                },
+                shadow: {
+                    enabled: true,
+                    color: 'rgba(0, 0, 0, 0.04)',
+                    size: 6,
+                    x: 0,
+                    y: 3
                 },
                 widthConstraint: {
                     maximum: 240
@@ -1094,20 +1152,17 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             // Connect parent category nodes to this compound (only if in its top 6 list)
-            data.categories.forEach(cat => {
-                const catNodeId = categoryMap.get(cat);
-                const colors = CATEGORY_COLORS[cat] || { line: '#CBD5E1' };
-                const topList = activeCategoryToCompounds[cat] || [];
-                if (catNodeId && topList.includes(data.name)) {
-                    edges.push({
-                        from: catNodeId,
-                        to: nodeId,
-                        width: 1.5,
-                        color: colors.line,
-                        arrows: { to: { enabled: false } }
-                    });
-                }
-            });
+            const catNodeId = categoryMap.get(data.category);
+            const topList = activeCategoryToCompounds[data.category] || [];
+            if (catNodeId && topList.includes(data.name)) {
+                edges.push({
+                    from: catNodeId,
+                    to: nodeId,
+                    width: 1.5,
+                    color: colors.line,
+                    arrows: { to: { enabled: false } }
+                });
+            }
         });
 
         const visNodes = new vis.DataSet(nodes);
@@ -1124,9 +1179,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 hierarchical: {
                     direction: 'LR',
                     sortMethod: 'directed',
-                    levelSeparation: 380, // Horizontal column gap (expanded to prevent overlapping)
-                    nodeSpacing: 80,     // Vertical gap in columns (expanded to improve text readability)
-                    treeSpacing: 100,
+                    levelSeparation: 320, // Horizontal column gap
+                    nodeSpacing: 140,     // Vertical gap in columns (expanded to accommodate box card height)
+                    treeSpacing: 120,
                     blockShifting: true,
                     edgeMinimization: true,
                     parentCentralization: true
