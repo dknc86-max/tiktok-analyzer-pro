@@ -1,13 +1,17 @@
 :root {
-    --bg-color: #F3F4F6;
+    --bg-color: #F8FAFC;
     --panel-bg: #FFFFFF;
-    --panel-border: #E5E7EB;
-    --text-primary: #1F2937;
-    --text-secondary: #6B7280;
+    --panel-border: #E2E8F0;
+    --text-primary: #0F172A;
+    --text-secondary: #475569;
     --accent-primary: #166534;
     --accent-secondary: #22C55E;
-    --accent-black: #111111;
-    --success: #10b981;
+    --accent-glow: #166534;
+    --accent-glow-secondary: #22C55E;
+    --accent-solid: #166534;
+    --accent-yellow: #EAB308;
+    --accent-black: #0F172A;
+    --success: #10B981;
 }
 
 * {
@@ -46,12 +50,15 @@ body {
 }
 
 .badge {
-    background: var(--accent-glow);
-    color: var(--text-primary);
-    padding: 0.2rem 0.8rem;
-    border-radius: 20px;
-    font-size: 1.2rem;
-    vertical-align: super;
+    background: #DCFCE7;
+    color: #15803D;
+    padding: 0.25rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    vertical-align: middle;
+    margin-left: 0.5rem;
+    letter-spacing: 0.5px;
 }
 
 header p {
@@ -62,18 +69,26 @@ header p {
 
 /* Glass Panels -> Solid Panels */
 .glass-panel {
-    background: #F8F9FA;
+    background: var(--panel-bg);
     border: 1px solid var(--panel-border);
     border-radius: 20px;
     padding: 2rem;
-    box-shadow: none;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.025);
+}
+
+.bento-card {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 24px;
+    padding: 2.5rem;
+    transition: all 0.3s ease;
 }
 
 /* Input Section */
 .input-group {
     display: flex;
     gap: 1rem;
-    background: #F5F5F5;
+    background: #F8FAFC;
     padding: 0.5rem;
     border-radius: 50px;
     border: 1px solid var(--panel-border);
@@ -113,8 +128,8 @@ button {
 }
 
 #submitBtn {
-    background: var(--accent-glow);
-    color: var(--text-primary);
+    background: var(--accent-primary);
+    color: #FFFFFF;
 }
 
 button:hover {
@@ -279,27 +294,27 @@ button:active {
 }
 
 .api-key-group input {
-    background: rgba(0, 0, 0, 0.25);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
+    background: #FFFFFF;
+    border: 1px solid var(--panel-border);
+    border-radius: 50px;
     padding: 0.75rem 1.5rem;
     font-size: 0.95rem;
-    color: white;
+    color: var(--text-primary);
     outline: none;
     transition: all 0.3s ease;
     width: 100%;
 }
 
 .api-key-group input:focus {
-    border-color: var(--accent-solid);
+    border-color: var(--accent-primary);
 }
 
 .api-key-group button {
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: #FFFFFF;
+    border: 1px solid var(--panel-border);
     color: var(--text-secondary);
     padding: 0.75rem 1.5rem;
-    border-radius: 8px;
+    border-radius: 50px;
     cursor: pointer;
     font-size: 0.9rem;
     min-width: 80px;
@@ -307,8 +322,8 @@ button:active {
 }
 
 .api-key-group button:hover {
-    background: rgba(255, 255, 255, 0.15);
-    color: white;
+    background: #F1F5F9;
+    color: var(--text-primary);
     transform: none;
     box-shadow: none;
 }
@@ -328,18 +343,18 @@ button:active {
 
 .search-box input {
     width: 100%;
-    background: rgba(0, 0, 0, 0.25);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
+    background: #FFFFFF;
+    border: 1px solid var(--panel-border);
+    border-radius: 50px;
     padding: 0.85rem 1.5rem;
     font-size: 1.05rem;
-    color: white;
+    color: var(--text-primary);
     outline: none;
     transition: all 0.3s ease;
 }
 
 .search-box input:focus {
-    border-color: var(--accent-glow);
+    border-color: var(--accent-primary);
 }
 
 .category-tabs {
@@ -349,11 +364,11 @@ button:active {
 }
 
 .tab-btn {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: #FFFFFF;
+    border: 1px solid var(--panel-border);
     color: var(--text-secondary);
     padding: 0.5rem 1.25rem;
-    border-radius: 8px;
+    border-radius: 50px;
     cursor: pointer;
     font-size: 0.9rem;
     font-weight: 500;
@@ -362,16 +377,16 @@ button:active {
 }
 
 .tab-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
+    background: #F1F5F9;
+    color: var(--text-primary);
     transform: translateY(-1px);
     box-shadow: none;
 }
 
 .tab-btn.active {
-    background: linear-gradient(135deg, var(--accent-glow), var(--accent-glow-secondary));
+    background: var(--accent-primary);
     color: white;
-    border-color: transparent;
+    border-color: var(--accent-primary);
 }
 
 /* Collapsible Result Cards */
@@ -455,12 +470,12 @@ button:active {
 }
 
 select {
-    background: rgba(0, 0, 0, 0.25);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
+    background: #FFFFFF;
+    border: 1px solid var(--panel-border);
+    border-radius: 50px;
     padding: 0.75rem 1.5rem;
     font-size: 0.95rem;
-    color: white;
+    color: var(--text-primary);
     outline: none;
     cursor: pointer;
     transition: all 0.3s ease;
@@ -468,12 +483,12 @@ select {
 }
 
 select:focus {
-    border-color: var(--accent-solid);
+    border-color: var(--accent-primary);
 }
 
 select option {
-    background: var(--bg-color);
-    color: white;
+    background: #FFFFFF;
+    color: var(--text-primary);
 }
 
 /* View Tabs Layout */
@@ -482,29 +497,29 @@ select option {
     justify-content: center;
     gap: 1rem;
     margin-bottom: 2rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid var(--panel-border);
     padding-bottom: 1rem;
 }
 .view-tab-btn {
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: #FFFFFF;
+    border: 1px solid var(--panel-border);
     color: var(--text-secondary);
     padding: 0.75rem 1.5rem;
-    border-radius: 8px;
+    border-radius: 50px;
     cursor: pointer;
     font-weight: 600;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     min-width: auto;
 }
 .view-tab-btn:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: white;
+    background: #F1F5F9;
+    color: var(--text-primary);
     transform: translateY(-2px);
 }
 .view-tab-btn.active {
-    background: linear-gradient(135deg, var(--accent-glow), var(--accent-glow-secondary));
+    background: var(--accent-primary);
     color: white;
-    border-color: transparent;
+    border-color: var(--accent-primary);
 }
 
 /* View Panels */
@@ -624,7 +639,7 @@ select option {
 }
 .timeline-container h3 {
     font-size: 1.3rem;
-    color: white;
+    color: var(--text-primary);
     margin-bottom: 0.25rem;
 }
 .timeline-subtitle {
@@ -638,8 +653,8 @@ select option {
     gap: 1rem;
 }
 .timeline-col {
-    background: rgba(0, 0, 0, 0.2);
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    background: #F8FAFC;
+    border: 1px solid var(--panel-border);
     border-radius: 12px;
     padding: 1rem;
     display: flex;
@@ -649,7 +664,7 @@ select option {
     transition: border-color 0.3s ease;
 }
 .timeline-col:hover {
-    border-color: rgba(99, 102, 241, 0.2);
+    border-color: var(--accent-secondary);
 }
 .time-header {
     font-size: 1rem;
@@ -694,7 +709,7 @@ select option {
     line-height: 1.3;
 }
 .timeline-empty {
-    color: rgba(255, 255, 255, 0.15);
+    color: var(--text-secondary);
     font-size: 0.8rem;
     text-align: center;
     margin: auto;
@@ -714,7 +729,7 @@ select option {
 }
 .mindmap-header h3 {
     font-size: 1.3rem;
-    color: white;
+    color: var(--text-primary);
     margin-bottom: 0.25rem;
 }
 .mindmap-header p {
@@ -764,7 +779,7 @@ select option {
     padding: 0;
 }
 .sidebar-close-btn:hover {
-    color: white;
+    color: var(--accent-primary);
     background: transparent;
     box-shadow: none;
     transform: none;
@@ -778,7 +793,7 @@ select option {
     text-transform: uppercase;
     letter-spacing: 1px;
     margin-bottom: 0.5rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid var(--panel-border);
     padding-bottom: 0.25rem;
 }
 .sidebar-title {
@@ -789,11 +804,12 @@ select option {
 }
 .sidebar-tag {
     display: inline-block;
-    padding: 0.25rem 0.5rem;
-    background: rgba(99, 102, 241, 0.2);
-    color: #c7d2fe;
-    border-radius: 4px;
+    padding: 0.25rem 0.75rem;
+    background: rgba(22, 101, 52, 0.1);
+    color: var(--accent-primary);
+    border-radius: 50px;
     font-size: 0.75rem;
+    font-weight: 600;
     margin-bottom: 1rem;
 }
 .sidebar-desc {
