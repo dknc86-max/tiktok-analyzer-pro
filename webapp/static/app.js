@@ -1223,7 +1223,7 @@ document.addEventListener('DOMContentLoaded', () => {
             },
             interaction: {
                 hover: true,
-                zoomView: false,
+                zoomView: true,
                 dragView: true
             }
         };
