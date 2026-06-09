@@ -3,10 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0B0F19">
+    <meta name="description" content="TikTok Analyzer Pro — Extract protocols, habits, and actionable advice from any TikTok creator using AI-powered analysis.">
     <title>TikTok Analyzer Pro</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- CDNs for Infographics & Mind Map -->
@@ -14,13 +16,18 @@
     <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 </head>
 <body>
+    <!-- Background Decorative Orbs -->
+    <div class="bg-orb bg-orb-1"></div>
+    <div class="bg-orb bg-orb-2"></div>
+    <div class="bg-orb bg-orb-3"></div>
+
     <div class="container">
         <header class="main-header">
             <h1><i class="fa-brands fa-tiktok"></i> TikTok Analyzer <span class="badge">PRO</span></h1>
             <p>Extract protocols, habits, and actionable advice from any creator.</p>
         </header>
 
-        <section class="input-section bento-card bento-white" style="margin-bottom: 2rem;">
+        <section class="input-section bento-card" style="margin-bottom: 2rem;">
             <form id="analyzeForm">
                 <div class="input-group">
                     <input type="text" id="targetInput" placeholder="Paste URL or @username" required autocomplete="off" value="https://www.tiktok.com/@ernietheplutus">
@@ -62,8 +69,8 @@
                 <section id="resultsSection" class="hidden">
                     <div class="results-header">
                         <h2>Extracted Protocols</h2>
-                        <div class="actions-group">
-                            <button id="synthesizeBtn" style="background: linear-gradient(135deg, var(--accent-glow), var(--accent-glow-secondary)); border: none; margin-right: 0.5rem;">🧬 Generate Synthesized Stacks</button>
+                        <div class="actions-group" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                            <button id="synthesizeBtn" style="background: linear-gradient(135deg, var(--accent-lavender), var(--accent-mint)); border: none;">🧬 Generate Synthesized Stacks</button>
                             <button id="downloadBtn" class="secondary-btn">Download NotebookLM File</button>
                         </div>
                     </div>
@@ -103,7 +110,7 @@
                                 <span class="metric-value" id="metricTotalCompounds">0</span>
                                 <span class="metric-trend"><i class="fa-solid fa-arrow-trend-up"></i> Discovered in profile</span>
                             </div>
-                            <div class="metric-card bento-card bento-white">
+                            <div class="metric-card bento-card bento-black">
                                 <span class="metric-label">Primary Category</span>
                                 <span class="metric-value" id="metricTopCategory">-</span>
                                 <span class="metric-trend"><i class="fa-solid fa-chart-line"></i> Top performing</span>
