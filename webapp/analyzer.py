@@ -63,15 +63,21 @@ def normalize_transcript(text):
         (r'\bmat\s+c\b', 'MOTS-c'),
         (r'\bmatsui\b', 'MOTS-c'),
         (r'\bmatsu\b', 'MOTS-c'),
+        (r'\bred\s*,?\s+f[u\*][c\*][k\*](?:ing)?\s+t(?:ide|ied)\b', 'Retatrutide'),
         (r'\bred\s+and\b', 'Retatrutide'),
         (r'\bred\s+end\b', 'Retatrutide'),
         (r'\bhard\s+r\b', 'Retatrutide'),
+        (r'\bhard-art-art\b', 'Retatrutide'),
         (r'\bhard-art\b', 'Retatrutide'),
         (r'\bslnc\b', 'Selank'),
         (r'\bs-l-n-c\b', 'Selank'),
+        (r'\bsalank\b', 'Selank'),
+        (r'\bthe\s+big\s+length\b', 'Selank'),
         (r'\bc\s+max\b', 'Semax'),
+        (r'\bsermerallin\b', 'Sermorelin'),
         (r'\bsermerall\b', 'Sermorelin'),
         (r'\bsermerellin\b', 'Sermorelin'),
+        (r'\bsermorale\b', 'Sermorelin'),
         (r'\bbpc\s*-\s*157\b', 'BPC-157'),
         (r'\bbpc\s+157\b', 'BPC-157'),
         (r'\bbpc157\b', 'BPC-157'),
@@ -82,9 +88,28 @@ def normalize_transcript(text):
         (r'\bghk\s+cu\b', 'GHK-Cu'),
         (r'\bghk-c\b', 'GHK-Cu'),
         (r'\bghk\s+c\b', 'GHK-Cu'),
+        (r'\btessa\s+ipa\s+blend\b', 'Tesamorelin / Ipamorelin Blend'),
+        (r'\btessa\s+ipa\s+psych\b', 'Tesamorelin / Ipamorelin cycle'),
         (r'\btessa\s+ipa\b', 'Tesamorelin / Ipamorelin'),
         (r'\btessa\s+and\s+ipa\b', 'Tesamorelin / Ipamorelin'),
         (r'\btess\s+and\s+ipa\b', 'Tesamorelin / Ipamorelin'),
+        (r'\btessa\s+morelana\b', 'Tesamorelin'),
+        (r'\bgrowth\s+hormones?\s+to\s+kreeti\s+gog\b', 'growth hormone secretagogue'),
+        (r'\bgrowth\s+hormones?\s+to\s+creati\s+gog\b', 'growth hormone secretagogue'),
+        (r'\bgrowth\s+hormones?\s+to\s+create\s+a\s+dog\b', 'growth hormone secretagogue'),
+        (r'\bmilano\s*-?\s*10\s+(?:too|2)\b', 'Melanotan 2'),
+        (r'\bmilano\s*-?\s*10\b', 'Melanotan'),
+        (r'\bin\s+clomophine\b', 'enclomiphene'),
+        (r'\bin\s+clomiphine\b', 'enclomiphene'),
+        (r'\bclomophine\b', 'enclomiphene'),
+        (r'\bclomiphine\b', 'enclomiphene'),
+        (r'\bfotitti\b', 'Fo-Ti'),
+        (r'\bdrop\s+the\s+zal\b', 'drop the cortisol'),
+        (r'\binfested\s+with\s+the\s+zal\b', 'infested with the cortisol'),
+        (r'\bthe\s+zal\b', 'the cortisol'),
+        (r'\bthe\s+big\s+bee\b', 'the big brain'),
+        (r'\bcrying\s+and\s+seed\s+on\s+half\s+to\b', 'Trying and See You Don\'t Have To'),
+        (r'\bthe\s+getter\s+stack\b', 'the beginner stack'),
     ]
     normalized = text
     for pattern, replacement in replacements:
@@ -94,26 +119,28 @@ def normalize_transcript(text):
 
 def classify_video(transcript, title):
     """Classify video into a category based on content analysis."""
-    t = transcript.lower()
+    # Run classification on the normalized transcript for maximum accuracy!
+    normalized = normalize_transcript(transcript)
+    t = normalized.lower()
     title_l = title.lower()
     
-    if len(transcript) < 200:
+    if len(normalized) < 200:
         return 'general_advice'
         
     junk_indicators = ['i\'m gonna be right back', 'they don\'t break on their ass',
                        'from a man named', 'i love it! i got this feeling',
-                       'blame, you\'re a little', 'manausages']
+                       'blame, you\'re a little', 'manausages', 'trying and see you don\'t have to']
     if any(j in t for j in junk_indicators):
         return 'general_advice'
         
     if any(x in t for x in ['peptide', 'bpc', 'tb500', 'ghk', 'ss31', 'mots-c', 'mott c', 'matsu', 'matsui', 'mat-c',
-                              'sermerall', 'epitale', 'epitalon', 'foxo', 'selank', 'semax', 'kpv', 'dsip', 'd-sip',
-                              'melanotan', 'milano', 'thymosin']):
+                              'sermerall', 'sermorelin', 'epitale', 'epitalon', 'foxo', 'selank', 'semax', 'kpv', 'dsip', 'd-sip',
+                              'melanotan', 'milano', 'thymosin', 'pinealon', 'growth hormone']):
         if any(x in t for x in ['stack', 'protocol', 'phase', 'experiment']):
             return 'peptide_protocol'
         return 'peptide_info'
         
-    if any(x in t for x in ['retitatide', 'reta', 'red end', 'red and', 'hard r', 'hard-art', 'glp', 'semaglutide',
+    if any(x in t for x in ['retitatide', 'retatrutide', 'reta', 'red end', 'red and', 'hard r', 'hard-art', 'glp', 'semaglutide',
                               'tirzepatide']):
         return 'glp1_fat_loss'
         
