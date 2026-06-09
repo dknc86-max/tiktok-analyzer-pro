@@ -88,6 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     // Common stop words to filter out in the dynamic term extractor
+    // Common stop words to filter out in the dynamic term extractor
     const STOP_WORDS = new Set([
         'the', 'and', 'a', 'to', 'of', 'in', 'is', 'that', 'it', 'for', 'you', 'was', 
         'on', 'as', 'with', 'they', 'but', 'he', 'she', 'his', 'her', 'we', 'our', 'us', 
@@ -103,7 +104,50 @@ document.addEventListener('DOMContentLoaded', () => {
         'look', 'find', 'found', 'give', 'needed', 'needs', 'day', 'days', 'week', 
         'weeks', 'month', 'months', 'year', 'lot', 'little', 'much', 'many', 'guys', 
         'someone', 'something', 'gonna', 'wanna', 'gotta', 'done', 'doing', 'talking', 
-        'talk', 'said', 'says', 'here', 'back', 'first', 'second', 'third', 'last'
+        'talk', 'said', 'says', 'here', 'back', 'first', 'second', 'third', 'last',
+        'going', 'maybe', 'because', 'should', 'would', 'could', 'about', 'there', 'their',
+        'them', 'what', 'when', 'where', 'which', 'who', 'how', 'why', 'with', 'within',
+        'without', 'would', 'will', 'shall', 'should', 'can', 'could', 'may', 'might',
+        'must', 'ought', 'need', 'needs', 'needed', 'want', 'wants', 'wanted', 'like',
+        'likes', 'liked', 'look', 'looks', 'looked', 'find', 'finds', 'found', 'take',
+        'takes', 'took', 'taken', 'give', 'gives', 'gave', 'given', 'make', 'makes',
+        'made', 'making', 'go', 'goes', 'went', 'gone', 'going', 'know', 'knows',
+        'knew', 'known', 'think', 'thinks', 'thought', 'say', 'says', 'said', 'tell',
+        'tells', 'told', 'come', 'comes', 'came', 'get', 'gets', 'got', 'getting',
+        'use', 'uses', 'used', 'using', 'work', 'works', 'worked', 'working', 'call',
+        'calls', 'called', 'calling', 'try', 'tries', 'tried', 'trying', 'feel',
+        'feels', 'felt', 'feeling', 'talk', 'talks', 'talked', 'talking', 'start',
+        'starts', 'started', 'starting', 'keep', 'keeps', 'kept', 'keeping', 'seem',
+        'seems', 'seemed', 'seeming', 'show', 'shows', 'showed', 'shown', 'showing',
+        'ask', 'asks', 'asked', 'asking', 'tell', 'tells', 'told', 'telling', 'help',
+        'helps', 'helped', 'helping', 'play', 'plays', 'played', 'playing', 'run',
+        'runs', 'ran', 'running', 'live', 'lives', 'lived', 'living', 'believe',
+        'believes', 'believed', 'believing', 'happen', 'happens', 'happened', 'happening',
+        'bring', 'brings', 'brought', 'bringing', 'write', 'writes', 'wrote', 'writing',
+        'read', 'reads', 'reading', 'hear', 'hears', 'heard', 'hearing', 'listen',
+        'listens', 'listened', 'listening', 'understand', 'understands', 'understood',
+        'understanding', 'remember', 'remembers', 'remembered', 'remembering', 'forget',
+        'forgets', 'forgot', 'forgetting', 'learn', 'learns', 'learned', 'learning',
+        'teach', 'teaches', 'taught', 'teaching', 'build', 'builds', 'built', 'building',
+        'create', 'creates', 'created', 'creating', 'destroy', 'destroys', 'destroyed',
+        'destroying', 'lose', 'loses', 'lost', 'losing', 'win', 'wins', 'won', 'winning',
+        'offer', 'offers', 'offered', 'offering', 'decide', 'decides', 'decided',
+        'deciding', 'stop', 'stops', 'stopped', 'stopping', 'allow', 'allows',
+        'allowed', 'allowing', 'hope', 'hopes', 'hoped', 'hoping', 'wish', 'wishes',
+        'wished', 'wishing', 'welcome', 'everyone', 'everything', 'everywhere', 'someone',
+        'something', 'somewhere', 'anybody', 'anything', 'anywhere', 'nothing', 'nobody',
+        'person', 'people', 'man', 'men', 'woman', 'women', 'child', 'children',
+        'other', 'others', 'another', 'same', 'different', 'particular', 'specific',
+        'general', 'common', 'simple', 'complex', 'better', 'worse', 'best', 'worst',
+        'good', 'bad', 'great', 'poor', 'high', 'low', 'large', 'small', 'big',
+        'little', 'long', 'short', 'new', 'old', 'young', 'early', 'late', 'hard',
+        'easy', 'right', 'wrong', 'true', 'false', 'real', 'fake', 'whole', 'part',
+        'half', 'double', 'single', 'multiple', 'several', 'various', 'numerous',
+        'countless', 'infinite', 'finite', 'many', 'much', 'few', 'little', 'less',
+        'least', 'more', 'most', 'enough', 'plenty', 'excess', 'deficit', 'surplus',
+        'balance', 'average', 'medium', 'heavy', 'light', 'strong', 'weak', 'fast',
+        'slow', 'quick', 'rapid', 'gradual', 'sudden', 'immediate', 'delayed', 'future',
+        'present', 'past', 'daily', 'weekly', 'monthly', 'yearly', 'annual', 'constant'
     ]);
 
     const CATEGORY_LABELS = {
@@ -944,10 +988,11 @@ document.addEventListener('DOMContentLoaded', () => {
             categoryMap.set(cat, nodeId);
         });
 
-        // 3. Topic/Compound nodes
+        // 3. Topic/Compound nodes mapping and collection
         const compoundMap = new Map();
+        const categoryCompounds = {}; // Map cat -> Array of compound names
         
-        // Build map of compounds and gather suggestions
+        // Populate arrays
         cachedResults.forEach(video => {
             const cat = video.category || 'general_advice';
             const catNodeId = categoryMap.get(cat);
@@ -955,6 +1000,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const videoText = video.title + ' ' + video.topic + ' ' + video.suggestions.join(' ');
             const compounds = parseKeyConceptsFromText(videoText, dynamicTopicsList);
+
+            if (!categoryCompounds[cat]) {
+                categoryCompounds[cat] = [];
+            }
 
             compounds.forEach(comp => {
                 const nodeId = `comp_${comp.toLowerCase()}`;
@@ -973,11 +1022,35 @@ document.addEventListener('DOMContentLoaded', () => {
                     url: video.url,
                     suggestions: video.suggestions.filter(s => s.toLowerCase().includes(comp.toLowerCase()))
                 });
+
+                if (!categoryCompounds[cat].includes(comp)) {
+                    categoryCompounds[cat].push(comp);
+                }
             });
         });
 
-        // Inject leaf nodes: Styled as plain, left-aligned text blocks with first suggestion as detail
+        // Select top 6 compounds per category to keep the visual tree clean & readable
+        const activeCompounds = new Set();
+        const activeCategoryToCompounds = {}; // cat -> top compounds list
+
+        Object.entries(categoryCompounds).forEach(([cat, comps]) => {
+            // Sort compounds by count descending
+            const sortedComps = comps.sort((a, b) => {
+                const countA = analyticsData.compoundCounts[a] || 0;
+                const countB = analyticsData.compoundCounts[b] || 0;
+                return countB - countA;
+            });
+            // Keep top 6
+            const topComps = sortedComps.slice(0, 6);
+            activeCategoryToCompounds[cat] = topComps;
+            topComps.forEach(c => activeCompounds.add(`comp_${c.toLowerCase()}`));
+        });
+
+        // Inject leaf nodes (top 6 compounds only)
         compoundMap.forEach((data, nodeId) => {
+            // Skip if not in top 6 for any category
+            if (!activeCompounds.has(nodeId)) return;
+
             // Find a descriptive snippet to display next to the compound name
             let desc = "";
             for (const vid of data.videos) {
@@ -998,30 +1071,34 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Standardize text format
             desc = desc.replace(/^-\s*/, '').trim();
-            if (desc.length > 68) {
-                desc = desc.substring(0, 65) + "...";
+            if (desc.length > 55) {
+                desc = desc.substring(0, 52) + "...";
             }
 
-            // Push the leaf node
+            // Push the leaf node: Left-aligned list item with word constraint wrapping
             nodes.push({
                 id: nodeId,
                 label: `<b>${data.name}:</b> ${desc}`,
                 shape: 'text',
                 level: 2,
                 font: {
-                    size: 12,
+                    size: 13,
                     color: '#334155', // Slate dark text
                     face: 'Outfit',
                     multi: 'html',
                     align: 'left' // Align text left like a list
+                },
+                widthConstraint: {
+                    maximum: 240
                 }
             });
 
-            // Connect parent category nodes to this compound
+            // Connect parent category nodes to this compound (only if in its top 6 list)
             data.categories.forEach(cat => {
                 const catNodeId = categoryMap.get(cat);
                 const colors = CATEGORY_COLORS[cat] || { line: '#CBD5E1' };
-                if (catNodeId) {
+                const topList = activeCategoryToCompounds[cat] || [];
+                if (catNodeId && topList.includes(data.name)) {
                     edges.push({
                         from: catNodeId,
                         to: nodeId,
@@ -1047,9 +1124,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 hierarchical: {
                     direction: 'LR',
                     sortMethod: 'directed',
-                    levelSeparation: 320, // Horizontal column gap
-                    nodeSpacing: 50,     // Vertical gap in columns
-                    treeSpacing: 80,
+                    levelSeparation: 380, // Horizontal column gap (expanded to prevent overlapping)
+                    nodeSpacing: 80,     // Vertical gap in columns (expanded to improve text readability)
+                    treeSpacing: 100,
                     blockShifting: true,
                     edgeMinimization: true,
                     parentCentralization: true
