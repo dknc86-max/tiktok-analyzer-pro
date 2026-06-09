@@ -653,7 +653,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     distributed: true
                 }
             },
-            colors: ['#FFD500', '#111111', '#065f46', '#9a3412', '#0c4a6e', '#831843', '#10b981', '#f59e0b', '#0ea5e9'],
+            colors: ['#166534', '#22C55E', '#14532D', '#86EFAC', '#4ADE80', '#064E3B', '#15803D', '#A7F3D0'],
             dataLabels: {
                 enabled: true,
                 textAnchor: 'start',
@@ -725,7 +725,7 @@ document.addEventListener('DOMContentLoaded', () => {
             stroke: {
                 show: false
             },
-            colors: ['#FFD500', '#111111', '#065f46', '#9a3412', '#0c4a6e', '#831843', '#10b981', '#f59e0b', '#0ea5e9'],
+            colors: ['#166534', '#22C55E', '#14532D', '#86EFAC', '#4ADE80', '#064E3B', '#15803D', '#A7F3D0'],
             legend: {
                 position: 'bottom',
                 fontFamily: 'Outfit, sans-serif',
@@ -874,11 +874,11 @@ document.addEventListener('DOMContentLoaded', () => {
             label: targetLabel,
             shape: 'ellipse',
             color: {
-                background: '#FFD500',
-                border: '#EAB308',
-                highlight: { background: '#FACC15', border: '#CA8A04' }
+                background: '#166534',
+                border: '#14532D',
+                highlight: { background: '#15803D', border: '#064E3B' }
             },
-            font: { size: 18, color: '#111111', bold: true },
+            font: { size: 18, color: '#FFFFFF', bold: true },
             value: 40,
             title: 'Creator Node'
         });
@@ -895,11 +895,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 label: cleanLabel,
                 shape: 'box',
                 color: {
-                    background: '#111111',
-                    border: '#000000',
-                    highlight: { background: '#333333', border: '#111111' }
+                    background: '#FFFFFF',
+                    border: '#E5E7EB',
+                    highlight: { background: '#F0FDF4', border: '#22C55E' }
                 },
-                font: { size: 14, color: '#FFFFFF' },
+                font: { size: 14, color: '#1F2937' },
                 value: 20 + count * 2,
                 title: `${count} videos in category ${cleanLabel}`
             });

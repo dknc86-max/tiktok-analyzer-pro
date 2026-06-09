@@ -13,160 +13,212 @@
     <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 </head>
 <body>
-    <main class="container">
-        <header>
-            <h1>TikTok Analyzer <span class="badge">PRO</span></h1>
-            <p>Extract protocols, habits, and actionable advice from any creator.</p>
-        </header>
-
-        <section class="glass-panel input-section">
-            <form id="analyzeForm">
-                <div class="input-group">
-                    <input type="text" id="targetInput" placeholder="Paste URL or @username" required autocomplete="off">
-                    <button type="submit" id="submitBtn">
-                        <span class="btn-text">Analyze Profile</span>
-                        <div class="loader hidden"></div>
-                    </button>
-                </div>
-                <div class="options-group">
-                    <div class="option-item">
-                        <label for="maxVideosSelect">Limit: </label>
-                        <select id="maxVideosSelect">
-                            <option value="10">Latest 10 Videos</option>
-                            <option value="25">Latest 25 Videos</option>
-                            <option value="50" selected>Latest 50 Videos</option>
-                            <option value="100">Latest 100 Videos</option>
-                            <option value="0">All Videos</option>
-                        </select>
-                    </div>
-                    <div class="api-key-group">
-                        <input type="password" id="apiKeyInput" placeholder="Gemini API Key (optional - for premium summaries)" autocomplete="off">
-                        <button type="button" id="toggleKeyBtn">Show</button>
-                    </div>
-                </div>
-            </form>
-        </section>
-
-        <section id="progressSection" class="glass-panel hidden">
-            <div class="progress-header">
-                <h3 id="progressTitle">Initializing...</h3>
-                <span id="progressPercentage">0%</span>
+    <div class="dashboard-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-logo">
+                <i class="fa-solid fa-chart-pie"></i>
+                <span>TikTok Pro</span>
             </div>
-            <div class="progress-track">
-                <div class="progress-fill" id="progressFill"></div>
-            </div>
-            <p id="progressMessage" class="progress-msg">Connecting to servers...</p>
-        </section>
-
-        <section id="resultsSection" class="hidden">
-            <div class="results-header">
-                <h2>Extracted Protocols</h2>
-                <div class="actions-group">
-                    <button id="synthesizeBtn" style="background: linear-gradient(135deg, var(--accent-glow), var(--accent-glow-secondary)); border: none; margin-right: 0.5rem;">🧬 Generate Synthesized Stacks</button>
-                    <button id="downloadBtn" class="secondary-btn">Download NotebookLM File</button>
-                </div>
-            </div>
-            
-            <div class="view-tabs">
-                <button id="viewCardsBtn" class="view-tab-btn active" data-view="cards">📋 Protocol Cards</button>
-                <button id="viewInfographicsBtn" class="view-tab-btn" data-view="infographics">📊 Stats & Infographics</button>
-                <button id="viewMindmapBtn" class="view-tab-btn" data-view="mindmap">🧠 Interactive Mind Map</button>
-            </div>
-
-            <!-- 1. Cards View -->
-            <div id="cardsView" class="view-panel">
-                <div class="filter-panel glass-panel">
-                    <div class="search-box">
-                        <input type="text" id="searchInput" placeholder="🔍 Search protocols, compounds, or dosages...">
-                    </div>
-                    <div id="categoryTabs" class="category-tabs">
-                        <!-- Dynamic Category buttons will be injected here -->
-                    </div>
-                </div>
+            <div class="sidebar-menu">
+                <p class="menu-label">MENU</p>
+                <a href="#" class="menu-item active"><i class="fa-solid fa-table-cells-large"></i> Dashboard</a>
+                <a href="#" class="menu-item"><i class="fa-solid fa-list-check"></i> Tasks</a>
+                <a href="#" class="menu-item"><i class="fa-regular fa-calendar"></i> Calendar</a>
+                <a href="#" class="menu-item"><i class="fa-solid fa-chart-simple"></i> Analytics</a>
+                <a href="#" class="menu-item"><i class="fa-solid fa-users"></i> Team</a>
                 
-                <div id="cardsGrid" class="cards-grid">
-                    <!-- Cards will be injected here via JS -->
-                </div>
+                <p class="menu-label" style="margin-top: 2rem;">GENERAL</p>
+                <a href="#" class="menu-item"><i class="fa-solid fa-gear"></i> Settings</a>
+                <a href="#" class="menu-item"><i class="fa-regular fa-circle-question"></i> Help</a>
+                <a href="#" class="menu-item"><i class="fa-solid fa-arrow-right-from-bracket"></i> Logout</a>
             </div>
+            <div class="sidebar-promo">
+                <div class="promo-icon"><i class="fa-brands fa-tiktok"></i></div>
+                <h4>Download our Mobile App</h4>
+                <p>Get easy in another way</p>
+                <button class="promo-btn">Download</button>
+            </div>
+        </aside>
 
-            <!-- 2. Infographics View -->
-            <div id="infographicsView" class="view-panel hidden">
-                <div class="metrics-grid">
-                    <div class="metric-card bento-card bento-yellow">
-                        <span class="metric-value" id="metricTotalVideos">0</span>
-                        <span class="metric-label">Total Videos Analyzed</span>
-                    </div>
-                    <div class="metric-card bento-card bento-black">
-                        <span class="metric-value" id="metricTotalCompounds">0</span>
-                        <span class="metric-label">Unique Topics Found</span>
-                    </div>
-                    <div class="metric-card bento-card bento-white">
-                        <span class="metric-value" id="metricTopCategory">-</span>
-                        <span class="metric-label">Primary Category</span>
-                    </div>
-                </div>
-                <div class="charts-grid">
-                    <div class="chart-container glass-panel">
-                        <h3>Most Mentioned Topics</h3>
-                        <div id="compoundChart"></div>
-                    </div>
-                    <div class="chart-container glass-panel">
-                        <h3>Protocol Categories</h3>
-                        <div id="categoryChart"></div>
-                    </div>
-                </div>
-                <div class="timeline-container glass-panel">
-                    <h3>🌅 Daily Protocol & Schedule</h3>
-                    <p class="timeline-subtitle">Inferred daily routine based on transcript context</p>
-                    <div class="timeline-grid">
-                        <div class="timeline-col" data-time="morning">
-                            <div class="time-header">🌅 Morning / Fasting</div>
-                            <div class="time-slots" id="slotsMorning">
-                                <!-- Dynamic slots -->
-                            </div>
-                        </div>
-                        <div class="timeline-col" data-time="afternoon">
-                            <div class="time-header">☀️ Afternoon</div>
-                            <div class="time-slots" id="slotsAfternoon">
-                                <!-- Dynamic slots -->
-                            </div>
-                        </div>
-                        <div class="timeline-col" data-time="night">
-                            <div class="time-header">🌙 Night / Evening</div>
-                            <div class="time-slots" id="slotsNight">
-                                <!-- Dynamic slots -->
-                            </div>
-                        </div>
-                        <div class="timeline-col" data-time="bed">
-                            <div class="time-header">🛌 Bedtime</div>
-                            <div class="time-slots" id="slotsBed">
-                                <!-- Dynamic slots -->
-                            </div>
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Top Header -->
+            <header class="top-header">
+                <form id="analyzeForm" class="input-group">
+                    <i class="fa-solid fa-search"></i>
+                    <input type="text" id="targetInput" placeholder="Search profile or enter URL..." value="https://www.tiktok.com/@ernietheplutus" />
+                    <button type="submit" id="submitBtn" style="display:none;">Analyze</button>
+                </form>
+                <div class="header-actions">
+                    <button class="icon-btn"><i class="fa-regular fa-envelope"></i></button>
+                    <button class="icon-btn"><i class="fa-regular fa-bell"></i></button>
+                    <div class="profile-info">
+                        <img src="https://ui-avatars.com/api/?name=User&background=166534&color=fff" alt="Profile" class="profile-avatar">
+                        <div class="profile-text">
+                            <span class="profile-name">Denis Max</span>
+                            <span class="profile-email">denis@mail.com</span>
                         </div>
                     </div>
                 </div>
-            </div>
+            </header>
 
-            <!-- 3. Mind Map View -->
-            <div id="mindmapView" class="view-panel hidden">
-                <div class="mindmap-container glass-panel">
-                    <div class="mindmap-header">
-                        <h3>Interactive Creator Topic Network</h3>
-                        <p>Drag nodes to reorganize. Scroll to zoom. Click nodes to inspect protocols.</p>
+            <div class="container">
+                <header class="dashboard-title-area">
+                    <div class="title-left">
+                        <h1>Dashboard</h1>
+                        <p>Plan, prioritize, and accomplish your tasks with ease.</p>
                     </div>
-                    <div class="mindmap-body">
-                        <div id="mindmapNetwork"></div>
-                        <div id="mindmapSidebar" class="mindmap-sidebar hidden">
-                            <button class="sidebar-close-btn" id="closeSidebarBtn">×</button>
-                            <div id="sidebarContent">
-                                <!-- Dynamic sidebar info -->
+                    <div class="title-right">
+                        <button class="primary-action-btn"><i class="fa-solid fa-plus"></i> Add Project</button>
+                        <button class="secondary-action-btn">Import Data</button>
+                    </div>
+                </header>
+
+                <section class="options-section" style="padding: 1rem 0;">
+                    <div class="options-group">
+                        <div class="option-item">
+                                <label for="maxVideosSelect">Limit: </label>
+                                <select id="maxVideosSelect">
+                                    <option value="10">Latest 10 Videos</option>
+                                    <option value="25">Latest 25 Videos</option>
+                                    <option value="50" selected>Latest 50 Videos</option>
+                                    <option value="100">Latest 100 Videos</option>
+                                    <option value="0">All Videos</option>
+                                </select>
+                            </div>
+                            <div class="api-key-group">
+                                <input type="password" id="apiKeyInput" placeholder="Gemini API Key (optional - for premium summaries)" autocomplete="off">
+                                <button type="button" id="toggleKeyBtn">Show</button>
+                            </div>
+                        </div>
+                </section>
+
+                <section id="progressSection" class="glass-panel hidden">
+                    <div class="progress-header">
+                        <h3 id="progressTitle">Initializing...</h3>
+                        <span id="progressPercentage">0%</span>
+                    </div>
+                    <div class="progress-track">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <p id="progressMessage" class="progress-msg">Connecting to servers...</p>
+                </section>
+
+                <section id="resultsSection" class="hidden">
+                    <div class="results-header">
+                        <h2>Extracted Protocols</h2>
+                        <div class="actions-group">
+                            <button id="synthesizeBtn" style="background: linear-gradient(135deg, var(--accent-glow), var(--accent-glow-secondary)); border: none; margin-right: 0.5rem;">🧬 Generate Synthesized Stacks</button>
+                            <button id="downloadBtn" class="secondary-btn">Download NotebookLM File</button>
+                        </div>
+                    </div>
+                    
+                    <div class="view-tabs">
+                        <button id="viewCardsBtn" class="view-tab-btn active" data-view="cards">📋 Protocol Cards</button>
+                        <button id="viewInfographicsBtn" class="view-tab-btn" data-view="infographics">📊 Stats & Infographics</button>
+                        <button id="viewMindmapBtn" class="view-tab-btn" data-view="mindmap">🧠 Interactive Mind Map</button>
+                    </div>
+
+                    <!-- 1. Cards View -->
+                    <div id="cardsView" class="view-panel">
+                        <div class="filter-panel glass-panel">
+                            <div class="search-box">
+                                <input type="text" id="searchInput" placeholder="🔍 Search protocols, compounds, or dosages...">
+                            </div>
+                            <div id="categoryTabs" class="category-tabs">
+                                <!-- Dynamic Category buttons will be injected here -->
+                            </div>
+                        </div>
+                        
+                        <div id="cardsGrid" class="cards-grid">
+                            <!-- Cards will be injected here via JS -->
+                        </div>
+                    </div>
+
+                    <!-- 2. Infographics View -->
+                    <div id="infographicsView" class="view-panel hidden">
+                        <div class="metrics-grid">
+                            <div class="metric-card bento-card bento-green">
+                                <span class="metric-label">Total Videos</span>
+                                <span class="metric-value" id="metricTotalVideos">0</span>
+                                <span class="metric-trend"><i class="fa-solid fa-arrow-trend-up"></i> Analyzed successfully</span>
+                            </div>
+                            <div class="metric-card bento-card bento-white">
+                                <span class="metric-label">Unique Topics</span>
+                                <span class="metric-value" id="metricTotalCompounds">0</span>
+                                <span class="metric-trend"><i class="fa-solid fa-arrow-trend-up"></i> Discovered in profile</span>
+                            </div>
+                            <div class="metric-card bento-card bento-white">
+                                <span class="metric-label">Primary Category</span>
+                                <span class="metric-value" id="metricTopCategory">-</span>
+                                <span class="metric-trend"><i class="fa-solid fa-chart-line"></i> Top performing</span>
+                            </div>
+                        </div>
+                        <div class="charts-grid">
+                            <div class="chart-container glass-panel">
+                                <h3>Most Mentioned Topics</h3>
+                                <div id="compoundChart"></div>
+                            </div>
+                            <div class="chart-container glass-panel">
+                                <h3>Protocol Categories</h3>
+                                <div id="categoryChart"></div>
+                            </div>
+                        </div>
+                        <div class="timeline-container glass-panel">
+                            <h3>🌅 Daily Protocol & Schedule</h3>
+                            <p class="timeline-subtitle">Inferred daily routine based on transcript context</p>
+                            <div class="timeline-grid">
+                                <div class="timeline-col" data-time="morning">
+                                    <div class="time-header">🌅 Morning / Fasting</div>
+                                    <div class="time-slots" id="slotsMorning">
+                                        <!-- Dynamic slots -->
+                                    </div>
+                                </div>
+                                <div class="timeline-col" data-time="afternoon">
+                                    <div class="time-header">☀️ Afternoon</div>
+                                    <div class="time-slots" id="slotsAfternoon">
+                                        <!-- Dynamic slots -->
+                                    </div>
+                                </div>
+                                <div class="timeline-col" data-time="night">
+                                    <div class="time-header">🌙 Night / Evening</div>
+                                    <div class="time-slots" id="slotsNight">
+                                        <!-- Dynamic slots -->
+                                    </div>
+                                </div>
+                                <div class="timeline-col" data-time="bed">
+                                    <div class="time-header">🛌 Bedtime</div>
+                                    <div class="time-slots" id="slotsBed">
+                                        <!-- Dynamic slots -->
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
+
+                    <!-- 3. Mind Map View -->
+                    <div id="mindmapView" class="view-panel hidden">
+                        <div class="mindmap-container glass-panel">
+                            <div class="mindmap-header">
+                                <h3>Interactive Creator Topic Network</h3>
+                                <p>Drag nodes to reorganize. Scroll to zoom. Click nodes to inspect protocols.</p>
+                            </div>
+                            <div class="mindmap-body">
+                                <div id="mindmapNetwork"></div>
+                                <div id="mindmapSidebar" class="mindmap-sidebar hidden">
+                                    <button class="sidebar-close-btn" id="closeSidebarBtn">×</button>
+                                    <div id="sidebarContent">
+                                        <!-- Dynamic sidebar info -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
             </div>
-        </section>
-    </main>
+        </main>
+    </div>
 
     <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
