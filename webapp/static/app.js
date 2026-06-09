@@ -1114,12 +1114,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 desc = desc.substring(0, 52) + "...";
             }
 
+            // Clean up titles and descriptions for fallback topic nodes to avoid duplicate/redundant lines
+            let displayName = data.name;
+            let displayDesc = desc;
+
+            const isGenericDesc = desc.includes("Analyzed across") || desc.includes("Recommended for");
+            const isDuplicate = desc.toLowerCase().replace(/[^a-z0-9]/g, '') === data.name.toLowerCase().replace(/[^a-z0-9]/g, '') ||
+                               (desc.toLowerCase().includes(data.name.toLowerCase()) && data.name.length > 15);
+
+            if (isDuplicate || (isGenericDesc && displayName.length > 20)) {
+                displayDesc = "";
+                if (displayName.length > 55) {
+                    displayName = displayName.substring(0, 52) + "...";
+                }
+            } else {
+                if (displayName.length > 35) {
+                    displayName = displayName.substring(0, 32) + "...";
+                }
+            }
+
             const colors = CATEGORY_COLORS[data.category] || { line: '#6366F1', border: '#6366F1', bg: '#EEF2FF', text: '#3730A3' };
 
-            // Push the leaf node: Left-aligned list item with word constraint wrapping inside a neat card
+            const nodeLabel = displayDesc ? `<b>${displayName}</b>\n<i>${displayDesc}</i>` : `<b>${displayName}</b>`;
+
+            // Push the leaf node: Left-aligned list item inside a styled box
             nodes.push({
                 id: nodeId,
-                label: `<b>${data.name}</b>\n<font size="11" color="#475569">${desc}</font>`,
+                label: nodeLabel,
                 shape: 'box',
                 level: 2,
                 color: {
@@ -1132,7 +1153,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     color: colors.text,
                     face: 'Outfit',
                     multi: 'html',
-                    align: 'left' // Align text left like a card
+                    align: 'left', // Align text left like a card
+                    italic: {
+                        color: '#475569',
+                        size: 11,
+                        face: 'Outfit'
+                    }
                 },
                 margin: { top: 10, bottom: 10, left: 15, right: 15 },
                 borderWidth: 1.5,
