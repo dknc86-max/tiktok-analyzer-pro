@@ -74,6 +74,9 @@ document.addEventListener('DOMContentLoaded', () => {
             const current = document.documentElement.getAttribute('data-theme') || 'light';
             const next = current === 'dark' ? 'light' : 'dark';
             applyTheme(next);
+            if (cachedResults && cachedResults.length > 0) {
+                processAnalyticsData();
+            }
         });
     }
 
@@ -740,7 +743,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderMindmap(data);
     }
 
-    // Render horizontal compound frequency chart
     function renderCompoundChart(compoundCounts) {
         const sorted = Object.entries(compoundCounts)
             .sort((a, b) => b[1] - a[1])
@@ -748,6 +750,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const categories = sorted.map(item => item[0]);
         const data = sorted.map(item => item[1]);
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const textColors = isDark ? '#94A3B8' : '#475569';
+        const gridBorder = isDark ? 'rgba(255, 255, 255, 0.05)' : '#E2E8F0';
+        const barColors = isDark ? 
+            ['#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#38BDF8', '#EC4899', '#A78BFA', '#34D399', '#FDBA74', '#F87171'] :
+            ['#166534', '#22C55E', '#14532D', '#86EFAC', '#4ADE80', '#064E3B', '#15803D', '#A7F3D0'];
 
         const options = {
             series: [{
@@ -759,7 +767,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 height: 320,
                 background: 'transparent',
                 toolbar: { show: false },
-                foreColor: '#111111'
+                foreColor: textColors
             },
             plotOptions: {
                 bar: {
@@ -769,7 +777,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     distributed: true
                 }
             },
-            colors: ['#166534', '#22C55E', '#14532D', '#86EFAC', '#4ADE80', '#064E3B', '#15803D', '#A7F3D0'],
+            colors: barColors,
             dataLabels: {
                 enabled: true,
                 textAnchor: 'start',
@@ -784,20 +792,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 offsetX: 10
             },
             grid: {
-                borderColor: '#E2E8F0',
+                borderColor: gridBorder,
                 xaxis: { lines: { show: true } }
             },
             xaxis: {
                 categories: categories,
                 labels: {
-                    style: { fontFamily: 'Outfit, sans-serif' }
+                    style: { fontFamily: 'Outfit, sans-serif', colors: textColors }
                 }
             },
             yaxis: {
                 labels: { show: false }
             },
             tooltip: {
-                theme: 'light',
+                theme: isDark ? 'dark' : 'light',
                 y: {
                     title: {
                         formatter: () => 'Mentions'
@@ -829,6 +837,12 @@ document.addEventListener('DOMContentLoaded', () => {
             labels.push(CATEGORY_LABELS[cat]?.replace(/^[^\s]+\s+/, '') || cat);
         });
 
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const textColors = isDark ? '#94A3B8' : '#475569';
+        const donutColors = isDark ? 
+            ['#8B5CF6', '#10B981', '#F59E0B', '#EF4444', '#38BDF8', '#EC4899', '#A78BFA', '#34D399', '#FDBA74', '#F87171'] :
+            ['#166534', '#22C55E', '#14532D', '#86EFAC', '#4ADE80', '#064E3B', '#15803D', '#A7F3D0'];
+
         const options = {
             series: series,
             labels: labels,
@@ -836,17 +850,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 type: 'donut',
                 height: 320,
                 background: 'transparent',
-                foreColor: '#111111'
+                foreColor: textColors
             },
             stroke: {
                 show: false
             },
-            colors: ['#166534', '#22C55E', '#14532D', '#86EFAC', '#4ADE80', '#064E3B', '#15803D', '#A7F3D0'],
+            colors: donutColors,
             legend: {
                 position: 'bottom',
                 fontFamily: 'Outfit, sans-serif',
                 labels: {
-                    colors: 'var(--text-secondary)'
+                    colors: textColors
                 }
             },
             dataLabels: {
@@ -856,7 +870,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             },
             tooltip: {
-                theme: 'light'
+                theme: isDark ? 'dark' : 'light'
             },
             plotOptions: {
                 pie: {
@@ -868,19 +882,19 @@ document.addEventListener('DOMContentLoaded', () => {
                             name: {
                                 show: true,
                                 fontFamily: 'Outfit, sans-serif',
-                                color: 'var(--text-secondary)'
+                                color: textColors
                             },
                             value: {
                                 show: true,
                                 fontFamily: 'Outfit, sans-serif',
-                                color: '#111111',
+                                color: isDark ? '#F8FAFC' : '#111111',
                                 formatter: (val) => val
                             },
                             total: {
                                 show: true,
                                 label: 'Total Videos',
                                 fontFamily: 'Outfit, sans-serif',
-                                color: '#666666',
+                                color: textColors,
                                 formatter: function (w) {
                                     return w.globals.seriesTotals.reduce((a, b) => a + b, 0);
                                 }
@@ -974,17 +988,25 @@ document.addEventListener('DOMContentLoaded', () => {
         // General / Dynamic topics
         return {
             background: '#134e4a', border: '#0d9488', font: '#ccfbf1',
-            highlight: { background: '#115e59', border: '#14b8a6' }
-        };
-    }
-
-    // Build force-directed Vis.js Network
+            highlight: { background: '#115e59',     // Build force-directed Vis.js Network
     function renderMindmap(analyticsData) {
         const nodes = [];
         const edges = [];
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 
-        // Premium Tailwind-inspired palette for category branches
-        const CATEGORY_COLORS = {
+        // Premium HSL-inspired palette for category branches
+        const CATEGORY_COLORS = isDark ? {
+            'peptide_protocol': { line: '#A78BFA', border: '#A78BFA', bg: 'rgba(167, 139, 250, 0.15)', text: '#F8FAFC' }, // Lavender
+            'peptide_info': { line: '#F472B6', border: '#F472B6', bg: 'rgba(244, 114, 182, 0.15)', text: '#F8FAFC' },     // Pink
+            'glp1_fat_loss': { line: '#F87171', border: '#F87171', bg: 'rgba(248, 113, 113, 0.15)', text: '#F8FAFC' },    // Coral/Red
+            'hormones': { line: '#60A5FA', border: '#60A5FA', bg: 'rgba(96, 165, 250, 0.15)', text: '#F8FAFC' },         // Blue
+            'mitochondria': { line: '#34D399', border: '#34D399', bg: 'rgba(52, 211, 153, 0.15)', text: '#F8FAFC' },     // Emerald Green
+            'nutrition': { line: '#FBBF24', border: '#FBBF24', bg: 'rgba(251, 191, 36, 0.15)', text: '#F8FAFC' },        // Amber
+            'wellness_mindset': { line: '#22D3EE', border: '#22D3EE', bg: 'rgba(34, 211, 238, 0.15)', text: '#F8FAFC' }, // Cyan
+            'fitness': { line: '#FB923C', border: '#FB923C', bg: 'rgba(251, 146, 60, 0.15)', text: '#F8FAFC' },          // Orange
+            'industry_news': { line: '#94A3B8', border: '#94A3B8', bg: 'rgba(148, 163, 184, 0.15)', text: '#F8FAFC' },    // Slate
+            'general_advice': { line: '#818CF8', border: '#818CF8', bg: 'rgba(129, 140, 248, 0.15)', text: '#F8FAFC' }    // Indigo
+        } : {
             'peptide_protocol': { line: '#8B5CF6', border: '#8B5CF6', bg: '#F3E8FF', text: '#5B21B6' }, // Purple
             'peptide_info': { line: '#D946EF', border: '#D946EF', bg: '#FDF4FF', text: '#86198F' },     // Pink
             'glp1_fat_loss': { line: '#EF4444', border: '#EF4444', bg: '#FEF2F2', text: '#991B1B' },    // Coral/Red
@@ -997,7 +1019,7 @@ document.addEventListener('DOMContentLoaded', () => {
             'general_advice': { line: '#6366F1', border: '#6366F1', bg: '#EEF2FF', text: '#3730A3' }    // Indigo
         };
 
-        // 1. Root node: Styled as a neumorphic white pill card with dark slate text
+        // 1. Root node
         const targetLabel = targetInput.value.trim() || "@jacobnach";
         nodes.push({
             id: 'root',
@@ -1005,13 +1027,16 @@ document.addEventListener('DOMContentLoaded', () => {
             shape: 'box',
             level: 0,
             color: {
-                background: '#FFFFFF',
-                border: '#E2E8F0',
-                highlight: { background: '#FFFFFF', border: '#CBD5E1' }
+                background: isDark ? '#1F2937' : '#FFFFFF',
+                border: isDark ? '#374151' : '#E2E8F0',
+                highlight: { 
+                    background: isDark ? '#1F2937' : '#FFFFFF', 
+                    border: isDark ? '#4B5563' : '#CBD5E1' 
+                }
             },
             font: { 
                 size: 15, 
-                color: '#0F172A', 
+                color: isDark ? '#F3F4F6' : '#0F172A', 
                 face: 'Outfit',
                 multi: 'html',
                 bold: true
@@ -1023,7 +1048,7 @@ document.addEventListener('DOMContentLoaded', () => {
             },
             shadow: {
                 enabled: true,
-                color: 'rgba(15, 23, 42, 0.08)',
+                color: isDark ? 'rgba(0, 0, 0, 0.3)' : 'rgba(15, 23, 42, 0.08)',
                 size: 10,
                 x: 0,
                 y: 4
@@ -1062,7 +1087,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 },
                 shadow: {
                     enabled: true,
-                    color: 'rgba(0, 0, 0, 0.03)',
+                    color: isDark ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.03)',
                     size: 6,
                     x: 0,
                     y: 3
@@ -1116,7 +1141,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         category: cat,
                         categories: new Set([cat]), // compatibility with sidebar badge renderer
                         videos: []
-                    });
+                     });
                 }
                 
                 const compData = compoundMap.get(nodeId);
@@ -1219,7 +1244,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     multi: 'html',
                     align: 'left', // Align text left like a card
                     italic: {
-                        color: '#475569',
+                        color: isDark ? '#94A3B8' : '#475569',
                         size: 11,
                         face: 'Outfit'
                     }
@@ -1231,7 +1256,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 },
                 shadow: {
                     enabled: true,
-                    color: 'rgba(0, 0, 0, 0.04)',
+                    color: isDark ? 'rgba(0, 0, 0, 0.25)' : 'rgba(0, 0, 0, 0.04)',
                     size: 6,
                     x: 0,
                     y: 3
