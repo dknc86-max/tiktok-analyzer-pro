@@ -1,0 +1,11 @@
+model: small.en
+device: auto  # cuda, mps, cpu, or auto
+language: auto  # auto-detect, or en, es, etc.
+vad: true
+vad_min_silence_ms: 500
+beam_size: 3
+retries: 5
+transcripts_path: transcripts.md
+export_srt: false
+export_vtt: false
+check_interactions: true

@@ -2,11 +2,15 @@ import os
 import re
 import sys
 import json
+import csv
 import time
 import hashlib
+import yaml as _yaml
 import yt_dlp
 import warnings
 from queue import Queue
+
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 
 try:
     from google import genai
@@ -30,84 +34,21 @@ try:
 except ImportError:
     pass
 
-COMPOUNDS = [
-    'BPC-157', 'TB-500', 'GHK-Cu', 'KPV', 'Pinealon', 'Epitalon',
-    'FOXO4-DRI', 'Selank', 'Semax', 'MOTS-c', 'Retatrutide', 'Tirzepatide',
-    'Semaglutide', 'Tesamorelin', 'Ipamorelin', 'TRT', 'Testosterone',
-    'Glutathione', 'NAD+', 'Sermorelin', 'Dihexa', 'DSIP', 'Melanotan'
-]
 
-INTERACTION_WARNINGS = [
-    (['Melanotan', 'Retatrutide'], "Melanotan + Retatrutide: both may affect appetite/metabolism; monitor closely."),
-    (['DSIP', 'Stimulants'], "DSIP + stimulants: may interfere with sleep architecture."),
-    (['TB-500', 'BPC-157'], "TB-500 + BPC-157: commonly stacked; no known adverse interaction."),
-    (['Semaglutide', 'Tirzepatide'], "Semaglutide + Tirzepatide: dual GLP-1 use increases GI side effect risk."),
-    (['MOTS-c', 'Metformin'], "MOTS-c + Metformin: both activate AMPK; monitor for hypoglycemia."),
-    (['Sermorelin', 'Ipamorelin'], "Sermorelin + Ipamorelin: standard GHRP/GHRH stack; generally synergistic."),
-]
+def write_protocols_csv(protocols, output_path):
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+    fields = ["compound", "dose", "timing", "route", "frequency", "confidence", "video_title", "video_url"]
+    with open(output_path, "w", newline="", encoding="utf-8") as fh:
+        writer = csv.DictWriter(fh, fieldnames=fields)
+        writer.writeheader()
+        for item in protocols:
+            writer.writerow({k: item.get(k, "") for k in fields})
 
 
-def download_audio(video_url, output_path, timeout=15, retries=5, nocheckcertificate=True):
-    for attempt in range(retries):
-        try:
-            ydl_opts = {
-                'format': 'bestaudio/best',
-                'outtmpl': output_path,
-                'quiet': True,
-                'socket_timeout': timeout,
-                'retries': 3 if attempt < retries - 1 else 5,
-                'nocheckcertificate': nocheckcertificate,
-                'continuedl': True,
-                'fragment_retries': 3,
-                'skip_unavailable_fragments': True,
-            }
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([video_url])
-            return
-        except Exception:
-            if attempt < retries - 1:
-                time.sleep(2 ** attempt)
-            else:
-                raise
-
-
-def get_video_entries(profile_url):
-    ydl_opts = {
-        'extract_flat': 'in_playlist',
-        'dump_single_json': True,
-        'quiet': True,
-    }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        result = ydl.extract_info(profile_url, download=False)
-        return result.get('entries', [result])
-
-
-def transcribe_audio(model, audio_path, return_segments=False, language=None):
-    kwargs = dict(
-        beam_size=3,
-        vad_filter=True,
-        vad_parameters=dict(min_silence_duration_ms=500, speech_pad_ms=200),
-    )
-    if language:
-        kwargs['language'] = language
-
-    if USE_FASTER:
-        segments, info = model.transcribe(audio_path, **kwargs)
-        segments = list(segments)
-        text = " ".join(seg.text for seg in segments).strip()
-        if return_segments:
-            return text, [(seg.start, seg.end, seg.text.strip(), getattr(seg, 'avg_logprob', 0.0)) for seg in segments], info
-        return text
-    else:
-        import whisper as _whisper
-        result = model.transcribe(audio_path, language=language)
-        text = result.get("text", "").strip()
-        if return_segments:
-            segs = []
-            for s in result.get("segments", []):
-                segs.append((s.get('start', 0), s.get('end', 0), s.get('text', '').strip(), s.get('avg_logprob', 0.0)))
-            return text, segs, None
-        return text
+def write_protocols_json(protocols, output_path):
+    os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as fh:
+        json.dump(protocols, fh, indent=2)
 
 
 def get_device():

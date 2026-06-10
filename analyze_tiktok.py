@@ -3,6 +3,9 @@ import sys
 import argparse
 import signal
 import glob
+import yat
+import requests
+from typing import Optional
 
 from core import (
     get_video_entries, download_audio, normalize_transcript, classify_video,
@@ -10,13 +13,21 @@ from core import (
     append_to_transcripts_file, USE_FASTER, WhisperModel,
     load_whisper_model, video_hash, save_srt, save_vtt,
     extract_fallback_protocols, check_interactions, COMPOUNDS,
-    load_job_state, save_job_state, is_in_state, transcribe_audio
+    load_job_state, save_job_state, is_in_state, transcribe_audio,
+    load_config, write_protocols_csv, write_protocols_json
 )
 
 DEFAULT_TRANSCRIPTS_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
     "transcripts.md"
 )
+
+
+def _detect_source(target):
+    if target.startswith("http"):
+        if "youtube.com" in target or "youtu.be" in target:
+            return "youtube"
+    return "tiktok"
 
 
 def cleanup_temp_files():
@@ -90,27 +101,38 @@ def summarize_transcripts(transcripts_file, output_file):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Download, transcribe, and summarize a TikTok profile.")
-    parser.add_argument("target", help="TikTok profile URL or @username")
+    parser = argparse.ArgumentParser(description="Download, transcribe, and summarize a TikTok or YouTube profile.")
+    parser.add_argument("target", help="TikTok/@username or YouTube URL")
     parser.add_argument("--limit", type=int, default=50, help="Max videos (default: 50, 0 for all)")
     parser.add_argument("--transcripts-path", default=None, help="Path to shared transcripts cache")
-    parser.add_argument("--model", default="small.en", help="Whisper model size (tiny.en, small.en, medium.en)")
+    parser.add_argument("--model", default=None, help="Whisper model size (overrides config)")
+    parser.add_argument("--source", choices=["tiktok", "youtube"], default=None, help="Content source (auto-detected from URL if omitted)")
     parser.add_argument("--resume", action="store_true", help="Resume from last state file if interrupted")
     parser.add_argument("--export-srt", action="store_true", help="Export .srt subtitle files per video")
     parser.add_argument("--export-vtt", action="store_true", help="Export .vtt subtitle files per video")
-    parser.add_argument("--check-interactions", action="store_true", help="Check compound interactions after analysis")
+    parser.add_argument("--export-csv", action="store_true", help="Export structured protocols to CSV")
+    parser.add_argument("--export-json", action="store_true", help="Export structured protocols to JSON")
+    parser.add_argument("--check-interactions", action="store_false", help="Disable compound interaction checks (enabled by default)")
     parser.add_argument("--no-vad", action="store_true", help="Disable VAD filtering")
     args = parser.parse_args()
 
+    config = load_config()
+    transcripts_path = args.transcripts_path or DEFAULT_TRANSCRIPTS_PATH
+    model_name = str(args.model or config.get("model", "small.en"))
+
     target = args.target
     limit = args.limit
-    transcripts_path = args.transcripts_path or DEFAULT_TRANSCRIPTS_PATH
+    source = args.source or _detect_source(target)
 
     if not target.startswith("http"):
-        if not target.startswith("@"):
-            target = "@" + target
-        profile_url = f"https://www.tiktok.com/{target}"
-        username = target
+        if source == "youtube":
+            profile_url = f"https://www.youtube.com/@{target.lstrip('@')}"
+            username = target if target.startswith("@") else f"@{target}"
+        else:
+            if not target.startswith("@"):
+                target = "@" + target
+            profile_url = f"https://www.tiktok.com/{target}"
+            username = target
     else:
         profile_url = target
         username = target.rstrip('/').split('/')[-1]
@@ -131,7 +153,7 @@ def main():
     if os.path.exists(transcripts_file):
         cache.update(load_transcript_cache(transcripts_file))
 
-    entries = get_video_entries(profile_url)
+    entries = get_video_entries(profile_url, source=source)
 
     if not entries:
         print("No videos found. Check the profile URL.")
@@ -142,7 +164,7 @@ def main():
 
     print(f"Found {len(entries)} videos. Loading Whisper model...")
 
-    model, device = load_whisper_model(args.model)
+    model, device = load_whisper_model(model_name)
     if device == "cuda":
         print("Using GPU acceleration (CUDA)")
     elif device == "mps":

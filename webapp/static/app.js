@@ -403,7 +403,29 @@ document.addEventListener('DOMContentLoaded', () => {
         processAnalyticsData();
 
         // Setup download button functionality for current results
-        downloadBtn.onclick = () => downloadMarkdown(cachedResults);
+        downloadBtn.onclick = () => {
+            if (cachedResults.length === 0) {
+                alert('No results to export yet.');
+                return;
+            }
+            downloadMarkdown(cachedResults);
+        };
+
+        exportCsvBtn.addEventListener('click', () => {
+            if (cachedResults.length === 0) {
+                alert('No results to export yet.');
+                return;
+            }
+            exportStructuredData(cachedResults, 'csv');
+        });
+
+        exportJsonBtn.addEventListener('click', () => {
+            if (cachedResults.length === 0) {
+                alert('No results to export yet.');
+                return;
+            }
+            exportStructuredData(cachedResults, 'json');
+        });
 
         // Setup synthesize button functionality
         synthesizeBtn.onclick = async () => {
@@ -411,7 +433,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const originalText = synthesizeBtn.textContent;
             synthesizeBtn.disabled = true;
             synthesizeBtn.textContent = '⚡ Synthesizing Master Stacks...';
-            
             try {
                 const res = await fetch('/api/synthesize', {
                     method: 'POST',
@@ -419,7 +440,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify({ api_key })
                 });
                 const data = await res.json();
-                
+
                 if (data.markdown) {
                     const blob = new Blob([data.markdown], { type: 'text/markdown' });
                     const url = URL.createObjectURL(blob);
@@ -435,6 +456,148 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     alert('Synthesis failed with unknown error.');
                 }
+            } catch (err) {
+                console.error(err);
+            } finally {
+                synthesizeBtn.disabled = false;
+                synthesizeBtn.textContent = originalText;
+            }
+        };
+
+    } else {
+        toastEl.textContent = 'Login failed';
+        toastEl.className = 'toast-message toast-error';
+        document.body.appendChild(toastEl);
+        setTimeout(() => document.body.removeChild(toastEl), 3000);
+    }
+
+    function exportStructuredData(results, format) {
+        const data = results.map(item => {
+            const protocols = (item.protocols || []).map(protocol => {
+                const { compound = '', dose = '', timing = '', route = '', frequency = '', confidence = '' } = protocol || {};
+                return compound ? { compound, dose, timing, route, frequency, confidence } : null;
+            }).filter(Boolean);
+            return {
+                title: item.title || '',
+                url: item.url || '',
+                protocols
+            };
+        });
+
+        const rawTarget = targetInput.value.trim();
+        const usernameMatch = rawTarget.match(/@([a-zA-Z0-9_.]+)/);
+        const safeName = (usernameMatch ? usernameMatch[1] : 'tiktok_creator').replace(/[^a-zA-Z0-9_]/g, '_');
+
+        const mimeType = format === 'csv' ? 'text/csv' : 'application/json';
+        const blob = new Blob([format === 'csv' ? toCsv(data) : JSON.stringify(data, null, 2)], { type: mimeType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${safeName}_results.${format}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    function toCsv(data) {
+        const header = ['title', 'url', 'compound', 'dose', 'timing', 'route', 'frequency', 'confidence'];
+        const rows = data.flatMap(item => {
+            if (!item.protocols.length) {
+                return [['', item.title, item.url, '', '', '', '', '']];
+            }
+            return item.protocols.map(protocol => {
+                return [
+                    item.title,
+                    item.url,
+                    protocol.compound ?? '',
+                    protocol.dose ?? '',
+                    protocol.timing ?? '',
+                    protocol.route ?? '',
+                    protocol.frequency ?? '',
+                    protocol.confidence ?? ''
+                ];
+            });
+        });
+        const escapeCsvValue = (value) => {
+            const text = String(value);
+            if (text.includes(',') || text.includes('"') || text.includes('\n')) {
+                return `"${text.replace(/"/g, '""')}"`;
+            }
+            return text;
+        };
+        const csvRows = rows.map((row) => row.map(escapeCsvValue).join(','));
+        return [header.join(','), ...csvRows].join('\n');
+    }
+
+    function highlightKeywords(text) {
+        const keywords = ['peptide', 'stack', 'mg', 'mcg', 'diet', 'fasting', 'testosterone', 'melanotan', 'bpc', 'tb500'];
+        let highlighted = text;
+        keywords.forEach(kw => {
+            const regex = new RegExp(`\\b${kw}\\b`, 'gi');
+            highlighted = highlighted.replace(regex, `<strong>$&</strong>`);
+        });
+        return highlighted;
+    }
+
+    function downloadMarkdown(results) {
+        // Extract a clean creator name from the input
+        const rawTarget = targetInput.value.trim();
+        let creatorName = rawTarget;
+        const usernameMatch = rawTarget.match(/@([a-zA-Z0-9_.]+)/);
+        if (usernameMatch) {
+            creatorName = '@' + usernameMatch[1];
+        }
+
+        let md = `# ${creatorName} — Extracted Protocols & Actionable Advice\n\n`;
+        md += `> **Source**: ${rawTarget}\n`;
+        md += `> **Videos Analyzed**: ${results.length}\n`;
+        md += `> **Generated by**: TikTok Analyzer Pro\n\n`;
+        md += `---\n\n`;
+
+        // Group results by category
+        const grouped = {};
+        results.forEach(item => {
+            const cat = item.category || 'general_advice';
+            const label = CATEGORY_LABELS[cat]?.replace(/^[^\s]+\s+/, '') || cat;
+            if (!grouped[label]) grouped[label] = [];
+            grouped[label].push(item);
+        });
+
+        // Table of contents
+        md += `## Table of Contents\n\n`;
+        Object.keys(grouped).forEach(label => {
+            const anchor = label.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+            md += `- [${label}](#${anchor}) (${grouped[label].length} videos)\n`;
+        });
+        md += `\n---\n\n`;
+
+        // Sections by category
+        Object.entries(grouped).forEach(([label, items]) => {
+            md += `## ${label}\n\n`;
+            items.forEach(item => {
+                md += `### ${item.title}\n`;
+                md += `- **Link**: ${item.url}\n`;
+                md += `- **Topic**: ${item.topic}\n\n`;
+                md += `**Key Takeaways & Protocols:**\n`;
+                item.suggestions.forEach(sug => {
+                    md += `- ${sug}\n`;
+                });
+                md += `\n---\n\n`;
+            });
+        });
+
+        const blob = new Blob([md], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const safeName = (usernameMatch ? usernameMatch[1] : 'tiktok_creator').replace(/[^a-zA-Z0-9_]/g, '_');
+        a.download = `${safeName}_protocols.md`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
             } catch (err) {
                 console.error(err);
                 alert('Connection to server failed.');
