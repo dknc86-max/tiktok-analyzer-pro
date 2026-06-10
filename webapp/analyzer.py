@@ -1,7 +1,10 @@
 import os
 import re
 import sys
+<<<<<<< HEAD
 import json
+=======
+>>>>>>> origin/main
 import glob
 import signal
 import threading
@@ -16,7 +19,11 @@ from core import (
     classify_video, extract_gemini_bullets, extract_fallback_bullets,
     generate_topic_summary, extract_suggestions, extract_video_id,
     load_transcript_cache, append_to_transcripts_file, HAS_GENAI,
+<<<<<<< HEAD
     USE_FASTER, WhisperModel, extract_dosages, compact_transcripts_cache
+=======
+    USE_FASTER, WhisperModel, load_whisper_model
+>>>>>>> origin/main
 )
 
 warnings.filterwarnings("ignore")
@@ -26,6 +33,7 @@ DEFAULT_TRANSCRIPTS_PATH = os.path.join(
     '..', 'transcripts.md'
 )
 
+<<<<<<< HEAD
 JOB_STATE_DB_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
     '..', 'job_state.db'
@@ -110,6 +118,9 @@ def db_list_jobs():
 import json
 
 
+=======
+
+>>>>>>> origin/main
 def cleanup_temp_files():
     pattern = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'tmp_audio_*.mp3')
     for f in glob.glob(pattern):
@@ -118,10 +129,15 @@ def cleanup_temp_files():
         except OSError:
             pass
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> origin/main
 def signal_handler(signum, frame):
     cleanup_temp_files()
     sys.exit(0)
 
+<<<<<<< HEAD
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
@@ -489,6 +505,26 @@ def analyze_profile_background(job_id, target, api_key=None, max_videos=50, resu
     )
 
     transcripts_path = DEFAULT_TRANSCRIPTS_PATH
+=======
+
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
+
+jobs = {}
+
+
+def analyze_profile_background(job_id, target, api_key=None, max_videos=50):
+    jobs[job_id] = {
+        "status": "starting",
+        "progress": 0,
+        "total": 0,
+        "current_video": "",
+        "message": "Fetching profile metadata...",
+        "results": []
+    }
+>>>>>>> origin/main
+
+    transcripts_path = DEFAULT_TRANSCRIPTS_PATH
 
     try:
         if not target.startswith("http"):
@@ -521,6 +557,7 @@ def analyze_profile_background(job_id, target, api_key=None, max_videos=50, resu
 
         cache = load_transcript_cache(transcripts_path)
 
+<<<<<<< HEAD
         if os.path.getsize(transcripts_path) > 10 * 1024 * 1024:
             compact_transcripts_cache(transcripts_path)
 
@@ -531,6 +568,9 @@ def analyze_profile_background(job_id, target, api_key=None, max_videos=50, resu
             device = "mps" if torch.backends.mps.is_available() else "cpu"
             import whisper
             model = whisper.load_model("tiny.en", device=device)
+=======
+        model, device = load_whisper_model("small.en")
+>>>>>>> origin/main
 
         extracted_data = []
         extracted_dosages = []

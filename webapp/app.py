@@ -5,11 +5,17 @@ import sys
 import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+
 app = Flask(__name__)
+
 
 @app.route('/')
 def index():
     return render_template('index.html')
+
 
 @app.route('/api/analyze', methods=['POST'])
 def analyze():
@@ -29,11 +35,13 @@ def analyze():
 
     return jsonify({"job_id": job_id, "comparison_job_id": comparison_job_id})
 
+
 @app.route('/api/status/<job_id>', methods=['GET'])
 def status(job_id):
     status_data = get_job_status(job_id)
     return jsonify(status_data)
 
+<<<<<<< HEAD
 @app.route('/api/jobs', methods=['GET'])
 def jobs_list():
     jobs = list_jobs()
@@ -130,6 +138,8 @@ def generate_notion_export(results):
             md += "\n"
 
     return md
+=======
+>>>>>>> origin/main
 
 @app.route('/api/synthesize', methods=['POST'])
 def synthesize():
@@ -180,6 +190,7 @@ def synthesize():
         return jsonify({"markdown": md})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)

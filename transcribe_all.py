@@ -6,8 +6,8 @@ import imageio_ffmpeg
 local_bin = os.path.abspath("local_bin")
 os.environ["PATH"] = local_bin + os.pathsep + os.environ.get("PATH", "")
 
-import whisper
 import yt_dlp
+from faster_whisper import WhisperModel
 import warnings
 from tqdm import tqdm
 
@@ -37,8 +37,8 @@ def main():
     profile_url = "https://www.tiktok.com/@jacobnach"
     entries = get_video_entries(profile_url)
     
-    print(f"Found {len(entries)} videos. Loading Whisper model...")
-    model = whisper.load_model("tiny.en") # Use tiny.en for maximum speed
+    print(f"Found {len(entries)} videos. Loading faster-whisper model (small.en)...")
+    model = WhisperModel("small.en", device="cpu", compute_type="int8")
     
     output_file = "transcripts.md"
     
@@ -59,8 +59,8 @@ def main():
             download_audio(video_url, audio_path)
             
             # 2. Transcribe
-            result = model.transcribe(audio_path)
-            transcript = result["text"].strip()
+            segments, info = model.transcribe(audio_path, beam_size=5)
+            transcript = " ".join([segment.text for segment in segments]).strip()
             
             # 3. Save
             with open(output_file, "a", encoding="utf-8") as f:

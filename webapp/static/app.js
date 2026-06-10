@@ -76,7 +76,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeCategory = 'all';
     let searchQuery = '';
     let activeView = 'cards';
-    
+
+
+
     let compoundChartInstance = null;
     let categoryChartInstance = null;
     let mindmapNetworkInstance = null;

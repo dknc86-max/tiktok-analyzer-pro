@@ -6,19 +6,11 @@ import warnings
 from queue import Queue
 
 try:
-    from google import genai
-    HAS_GENAI = True
+    import imageio_ffmpeg
+    ffmpeg_dir = os.path.dirname(imageio_ffmpeg.get_ffmpeg_exe())
+    os.environ["PATH"] = ffmpeg_dir + os.pathsep + os.environ.get("PATH", "")
 except ImportError:
-    HAS_GENAI = False
-
-warnings.filterwarnings("ignore")
-
-try:
-    from faster_whisper import WhisperModel
-    USE_FASTER = True
-except ImportError:
-    USE_FASTER = False
-    WhisperModel = None
+    pass
 
 try:
     from pydub import AudioSegment
@@ -31,16 +23,6 @@ try:
     HAS_NOISEREDUCE = True
 except ImportError:
     HAS_NOISEREDUCE = False
-
-try:
-    import imageio_ffmpeg
-    ffmpeg_dir = os.path.dirname(imageio_ffmpeg.get_ffmpeg_exe())
-    os.environ["PATH"] = ffmpeg_dir + os.pathsep + os.environ.get("PATH", "")
-except ImportError:
-    pass
-
-
-def preprocess_audio(file_path):
     """Enhanced audio preprocessing pipeline for better transcription accuracy"""
     if not HAS_PYDUB:
         return file_path
@@ -99,6 +81,19 @@ def preprocess_audio(file_path):
     except Exception as e:
         print(f"Audio preprocessing warning: {e}. Using original file.")
         return file_path
+=======
+def download_audio(video_url, output_path, timeout=15, retries=3, nocheckcertificate=True):
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'outtmpl': output_path,
+        'quiet': True,
+        'socket_timeout': timeout,
+        'retries': retries,
+        'nocheckcertificate': nocheckcertificate,
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([video_url])
+>>>>>>> origin/main
 
 
 def get_video_entries(profile_url):
@@ -112,6 +107,7 @@ def get_video_entries(profile_url):
         return result.get('entries', [result])
 
 
+<<<<<<< HEAD
 def transcribe_audio(model, audio_path, language="en", beam_size=5, vad_filter=True):
     if USE_FASTER:
         segments, info = model.transcribe(
@@ -129,6 +125,49 @@ def transcribe_audio(model, audio_path, language="en", beam_size=5, vad_filter=T
         result = model.transcribe(audio_path, language=language, beam_size=beam_size)
         confidence = result.get("confidence", 0.0)
         return result.get("text", "").strip(), confidence, None
+=======
+def transcribe_audio(model, audio_path):
+    if USE_FASTER:
+        segments, _ = model.transcribe(
+            audio_path,
+            language="en",
+            beam_size=3,
+            vad_filter=True,
+            vad_parameters=dict(min_silence_duration_ms=500, speech_pad_ms=200),
+        )
+        return " ".join(seg.text for seg in segments).strip()
+    else:
+        import whisper as _whisper
+        result = model.transcribe(audio_path)
+        return result.get("text", "").strip()
+
+
+def get_device():
+    try:
+        import torch
+        if torch.cuda.is_available():
+            return "cuda"
+        if torch.backends.mps.is_available():
+            return "mps"
+    except ImportError:
+        pass
+    return "cpu"
+
+
+def get_compute_type(device):
+    return "float16" if device == "cuda" else "int8"
+
+
+def load_whisper_model(model_name="small.en"):
+    if USE_FASTER:
+        device = get_device()
+        return WhisperModel(model_name, compute_type=get_compute_type(device)), device
+    else:
+        import whisper
+        device = get_device()
+        model = whisper.load_model(model_name, device=device)
+        return model, device
+>>>>>>> origin/main
 
 
 def normalize_transcript(text):
@@ -460,6 +499,7 @@ def append_to_transcripts_file(filepath, title, url, transcript):
     except Exception as e:
         print(f"Error appending to transcripts: {e}")
 
+<<<<<<< HEAD
 
 DOSAGE_COMPOUNDS = [
     'BPC-157', 'TB-500', 'GHK-Cu', 'KPV', 'Pinealon', 'Epitalon',
@@ -618,3 +658,5 @@ def compact_transcripts_cache(filepath, max_age_days=90):
     except Exception as e:
         print(f"Error compacting transcripts cache: {e}")
         return False
+=======
+>>>>>>> origin/main

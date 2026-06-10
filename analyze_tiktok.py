@@ -7,7 +7,8 @@ import glob
 from core import (
     get_video_entries, download_audio, transcribe_audio, normalize_transcript, classify_video,
     extract_suggestions, extract_video_id, load_transcript_cache,
-    append_to_transcripts_file, USE_FASTER, WhisperModel
+    append_to_transcripts_file, USE_FASTER, WhisperModel,
+    load_whisper_model
 )
 
 DEFAULT_TRANSCRIPTS_PATH = os.path.join(
@@ -15,6 +16,10 @@ DEFAULT_TRANSCRIPTS_PATH = os.path.join(
     "transcripts.md"
 )
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> origin/main
 def cleanup_temp_files():
     pattern = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tmp_audio_*.mp3")
     for f in glob.glob(pattern):
@@ -23,16 +28,23 @@ def cleanup_temp_files():
         except OSError:
             pass
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> origin/main
 def signal_handler(signum, frame):
     cleanup_temp_files()
     sys.exit(0)
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> origin/main
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
 
 def summarize_transcripts(transcripts_file, output_file):
-    from core import generate_topic_summary, extract_fallback_bullets
     import re
 
     print("Generating summaries...")
@@ -120,6 +132,7 @@ def main():
 
     print(f"Found {len(entries)} videos. Loading Whisper model...")
 
+<<<<<<< HEAD
     if USE_FASTER:
         model = WhisperModel("tiny.en", compute_type="int8")
     else:
@@ -127,6 +140,15 @@ def main():
         device = "mps" if torch.backends.mps.is_available() else "cpu"
         import whisper
         model = whisper.load_model("tiny.en", device=device)
+=======
+    model, device = load_whisper_model("small.en")
+    if device == "cuda":
+        print("Using GPU acceleration (CUDA)")
+    elif device == "mps":
+        print("Using Apple MPS acceleration")
+    else:
+        print("Using CPU (slow)")
+>>>>>>> origin/main
 
     with open(transcripts_file, "w", encoding="utf-8") as f:
         f.write(f"# TikTok Transcripts for {username}\n\n")
