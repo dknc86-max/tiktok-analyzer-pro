@@ -125,10 +125,10 @@ def main():
 
     device = "mps" if torch.backends.mps.is_available() else "cpu"
     if USE_FASTER:
-        model = WhisperModel("tiny.en", compute_type="int8")
+        model = WhisperModel("small.en", compute_type="int8")
     else:
         import whisper
-        model = whisper.load_model("tiny.en", device=device)
+        model = whisper.load_model("small.en", device=device)
 
     with open(transcripts_file, "w", encoding="utf-8") as f:
         f.write(f"# TikTok Transcripts for {username}\n\n")

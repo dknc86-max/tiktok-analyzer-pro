@@ -91,7 +91,7 @@ def analyze_profile_background(job_id, target, api_key=None, max_videos=50):
         cache = load_transcript_cache(transcripts_path)
 
         if USE_FASTER:
-            model = WhisperModel("tiny.en", compute_type="int8")
+            model = WhisperModel("small.en", compute_type="int8")
         else:
             import torch
             device = "mps" if torch.backends.mps.is_available() else "cpu"

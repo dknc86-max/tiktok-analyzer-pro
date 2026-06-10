@@ -54,7 +54,13 @@ def get_video_entries(profile_url):
 
 def transcribe_audio(model, audio_path):
     if USE_FASTER:
-        segments, _ = model.transcribe(audio_path, language="en", beam_size=1)
+        segments, _ = model.transcribe(
+            audio_path,
+            language="en",
+            beam_size=3,
+            vad_filter=True,
+            vad_parameters=dict(min_silence_duration_ms=500, speech_pad_ms=200),
+        )
         return " ".join(seg.text for seg in segments).strip()
     else:
         import whisper as _whisper
