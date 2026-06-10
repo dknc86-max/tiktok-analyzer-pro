@@ -50,7 +50,35 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeCategory = 'all';
     let searchQuery = '';
     let activeView = 'cards';
-    
+
+    const themeToggle = document.getElementById('themeToggle');
+
+    function applyTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('tiktok-theme', theme);
+        const icon = themeToggle && themeToggle.querySelector('i');
+        if (icon) {
+            icon.className = theme === 'dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+        }
+    }
+
+    function initTheme() {
+        const saved = localStorage.getItem('tiktok-theme');
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const theme = saved || (prefersDark ? 'dark' : 'light');
+        applyTheme(theme);
+    }
+
+    if (themeToggle) {
+        themeToggle.addEventListener('click', () => {
+            const current = document.documentElement.getAttribute('data-theme') || 'light';
+            const next = current === 'dark' ? 'light' : 'dark';
+            applyTheme(next);
+        });
+    }
+
+    initTheme();
+
     let compoundChartInstance = null;
     let categoryChartInstance = null;
     let mindmapNetworkInstance = null;
