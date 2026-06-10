@@ -8,7 +8,9 @@ from core import (
     get_video_entries, download_audio, normalize_transcript, classify_video,
     extract_suggestions, extract_video_id, load_transcript_cache,
     append_to_transcripts_file, USE_FASTER, WhisperModel,
-    load_whisper_model
+    load_whisper_model, video_hash, save_srt, save_vtt,
+    extract_fallback_protocols, check_interactions, COMPOUNDS,
+    load_job_state, save_job_state, is_in_state, transcribe_audio
 )
 
 DEFAULT_TRANSCRIPTS_PATH = os.path.join(
@@ -69,21 +71,35 @@ def summarize_transcripts(transcripts_file, output_file):
                 continue
 
             category = classify_video(transcript, title)
-            topic, suggestions = extract_suggestions(transcript, category)
+            topic, suggestions, protocols = extract_suggestions(transcript, category, return_protocols=True)
 
             out.write(f"### [{title}]({url})\n")
             out.write(f"**Topic**: {topic}\n\n")
             out.write("**Key Suggestions / Takeaways**:\n")
             for sug in suggestions:
                 out.write(f"- {sug}\n")
+            if protocols:
+                out.write("\n**Structured Protocols**:\n")
+                for p in protocols:
+                    dose = p.get('dose', 'N/A')
+                    timing = p.get('timing', 'N/A')
+                    route = p.get('route', 'N/A')
+                    conf = p.get('confidence', 'low')
+                    out.write(f"- **{p['compound']}**: {dose} | {timing} | {route} | confidence: {conf}\n")
             out.write("\n")
 
 
 def main():
     parser = argparse.ArgumentParser(description="Download, transcribe, and summarize a TikTok profile.")
-    parser.add_argument("target", help="The TikTok profile URL (e.g., https://www.tiktok.com/@username) or just the @username")
-    parser.add_argument("--limit", type=int, default=50, help="Maximum number of videos to download and transcribe (default: 50, use 0 for all)")
-    parser.add_argument("--transcripts-path", default=None, help="Path to shared transcripts cache file (default: ./transcripts.md)")
+    parser.add_argument("target", help="TikTok profile URL or @username")
+    parser.add_argument("--limit", type=int, default=50, help="Max videos (default: 50, 0 for all)")
+    parser.add_argument("--transcripts-path", default=None, help="Path to shared transcripts cache")
+    parser.add_argument("--model", default="small.en", help="Whisper model size (tiny.en, small.en, medium.en)")
+    parser.add_argument("--resume", action="store_true", help="Resume from last state file if interrupted")
+    parser.add_argument("--export-srt", action="store_true", help="Export .srt subtitle files per video")
+    parser.add_argument("--export-vtt", action="store_true", help="Export .vtt subtitle files per video")
+    parser.add_argument("--check-interactions", action="store_true", help="Check compound interactions after analysis")
+    parser.add_argument("--no-vad", action="store_true", help="Disable VAD filtering")
     args = parser.parse_args()
 
     target = args.target
@@ -107,6 +123,9 @@ def main():
 
     transcripts_file = os.path.join(output_dir, "transcripts.md")
     summaries_file = os.path.join(output_dir, "detailed_summaries.md")
+    state_file = os.path.join(output_dir, "job_state.json")
+
+    state = load_job_state(state_file) if args.resume else {"completed": [], "failed": [], "skipped": [], "last_idx": -1}
 
     cache = load_transcript_cache(transcripts_path)
     if os.path.exists(transcripts_file):
@@ -123,7 +142,7 @@ def main():
 
     print(f"Found {len(entries)} videos. Loading Whisper model...")
 
-    model, device = load_whisper_model("small.en")
+    model, device = load_whisper_model(args.model)
     if device == "cuda":
         print("Using GPU acceleration (CUDA)")
     elif device == "mps":
@@ -134,12 +153,26 @@ def main():
     with open(transcripts_file, "w", encoding="utf-8") as f:
         f.write(f"# TikTok Transcripts for {username}\n\n")
 
+    seen_hashes = set()
+    all_protocols = []
+    all_compounds = set()
+
     for idx, entry in enumerate(entries):
+        if idx <= state.get("last_idx", -1):
+            continue
+
         video_url = entry.get('url') or entry.get('webpage_url')
         if not video_url:
             continue
 
         title = entry.get('title', f"Video {idx+1}")
+        vhash = video_hash(video_url, title)
+
+        if vhash in seen_hashes:
+            print(f"\n[{idx+1}/{len(entries)}] [DEDUP SKIP] Duplicate: {title}")
+            state["skipped"].append(extract_video_id(video_url) or vhash)
+            continue
+        seen_hashes.add(vhash)
 
         video_id = extract_video_id(video_url)
         if video_id and video_id in cache:
@@ -147,27 +180,70 @@ def main():
             transcript = cache[video_id]
             with open(transcripts_file, "a", encoding="utf-8") as f:
                 f.write(f"## {title}\nURL: {video_url}\n\n{transcript}\n\n")
+            state["completed"].append(video_id)
+            state["last_idx"] = idx
+            save_job_state(state_file, state)
+
+            category = classify_video(transcript, title)
+            _, _, protocols = extract_suggestions(transcript, category, return_protocols=True)
+            if protocols:
+                all_protocols.extend(protocols)
+                for p in protocols:
+                    all_compounds.add(p.get('compound', ''))
             continue
 
         print(f"\n[{idx+1}/{len(entries)}] Transcribing: {title}")
         audio_path = f"tmp_audio_{idx}.mp3"
         try:
             download_audio(video_url, audio_path)
-            transcript = transcribe_audio(model, audio_path)
+            language = None  # auto-detect
+            if args.no_vad:
+                language = "en"
+            text, segments, _ = transcribe_audio(model, audio_path, return_segments=True, language=language)
+            transcript = text
 
             with open(transcripts_file, "a", encoding="utf-8") as f:
                 f.write(f"## {title}\nURL: {video_url}\n\n{transcript}\n\n")
 
+            if args.export_srt:
+                srt_path = os.path.join(output_dir, f"{idx+1:03d}_{title[:40].replace('/', '_')}.srt")
+                save_srt(segments, srt_path)
+
+            if args.export_vtt:
+                vtt_path = os.path.join(output_dir, f"{idx+1:03d}_{title[:40].replace('/', '_')}.vtt")
+                save_vtt(segments, vtt_path)
+
             append_to_transcripts_file(transcripts_path, title, video_url, transcript)
             if video_id:
                 cache[video_id] = transcript
+
+            category = classify_video(transcript, title)
+            _, _, protocols = extract_suggestions(transcript, category, return_protocols=True)
+            if protocols:
+                all_protocols.extend(protocols)
+                for p in protocols:
+                    all_compounds.add(p.get('compound', ''))
+
+            state["completed"].append(video_id or vhash)
+            state["last_idx"] = idx
+            save_job_state(state_file, state)
+
         except Exception as e:
             print(f"Error on video {idx+1}: {e}")
+            state["failed"].append(video_id or vhash)
+            state["last_idx"] = idx
+            save_job_state(state_file, state)
         finally:
             if os.path.exists(audio_path):
                 os.remove(audio_path)
 
-    print("All videos transcribed successfully.")
+    print("\nAll videos transcribed successfully.")
+
+    if args.check_interactions and all_compounds:
+        print("\n=== Interaction Warnings ===")
+        warnings = check_interactions(list(all_compounds))
+        for w in warnings:
+            print(f"- {', '.join(w['compounds'])}: {w['message']}")
 
     summarize_transcripts(transcripts_file, summaries_file)
     cleanup_temp_files()

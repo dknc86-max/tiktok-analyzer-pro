@@ -1,6 +1,9 @@
 import os
 import re
 import sys
+import json
+import time
+import hashlib
 import yt_dlp
 import warnings
 from queue import Queue
@@ -27,18 +30,45 @@ try:
 except ImportError:
     pass
 
+COMPOUNDS = [
+    'BPC-157', 'TB-500', 'GHK-Cu', 'KPV', 'Pinealon', 'Epitalon',
+    'FOXO4-DRI', 'Selank', 'Semax', 'MOTS-c', 'Retatrutide', 'Tirzepatide',
+    'Semaglutide', 'Tesamorelin', 'Ipamorelin', 'TRT', 'Testosterone',
+    'Glutathione', 'NAD+', 'Sermorelin', 'Dihexa', 'DSIP', 'Melanotan'
+]
 
-def download_audio(video_url, output_path, timeout=15, retries=3, nocheckcertificate=True):
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'outtmpl': output_path,
-        'quiet': True,
-        'socket_timeout': timeout,
-        'retries': retries,
-        'nocheckcertificate': nocheckcertificate,
-    }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([video_url])
+INTERACTION_WARNINGS = [
+    (['Melanotan', 'Retatrutide'], "Melanotan + Retatrutide: both may affect appetite/metabolism; monitor closely."),
+    (['DSIP', 'Stimulants'], "DSIP + stimulants: may interfere with sleep architecture."),
+    (['TB-500', 'BPC-157'], "TB-500 + BPC-157: commonly stacked; no known adverse interaction."),
+    (['Semaglutide', 'Tirzepatide'], "Semaglutide + Tirzepatide: dual GLP-1 use increases GI side effect risk."),
+    (['MOTS-c', 'Metformin'], "MOTS-c + Metformin: both activate AMPK; monitor for hypoglycemia."),
+    (['Sermorelin', 'Ipamorelin'], "Sermorelin + Ipamorelin: standard GHRP/GHRH stack; generally synergistic."),
+]
+
+
+def download_audio(video_url, output_path, timeout=15, retries=5, nocheckcertificate=True):
+    for attempt in range(retries):
+        try:
+            ydl_opts = {
+                'format': 'bestaudio/best',
+                'outtmpl': output_path,
+                'quiet': True,
+                'socket_timeout': timeout,
+                'retries': 3 if attempt < retries - 1 else 5,
+                'nocheckcertificate': nocheckcertificate,
+                'continuedl': True,
+                'fragment_retries': 3,
+                'skip_unavailable_fragments': True,
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([video_url])
+            return
+        except Exception:
+            if attempt < retries - 1:
+                time.sleep(2 ** attempt)
+            else:
+                raise
 
 
 def get_video_entries(profile_url):
@@ -52,20 +82,32 @@ def get_video_entries(profile_url):
         return result.get('entries', [result])
 
 
-def transcribe_audio(model, audio_path):
+def transcribe_audio(model, audio_path, return_segments=False, language=None):
+    kwargs = dict(
+        beam_size=3,
+        vad_filter=True,
+        vad_parameters=dict(min_silence_duration_ms=500, speech_pad_ms=200),
+    )
+    if language:
+        kwargs['language'] = language
+
     if USE_FASTER:
-        segments, _ = model.transcribe(
-            audio_path,
-            language="en",
-            beam_size=3,
-            vad_filter=True,
-            vad_parameters=dict(min_silence_duration_ms=500, speech_pad_ms=200),
-        )
-        return " ".join(seg.text for seg in segments).strip()
+        segments, info = model.transcribe(audio_path, **kwargs)
+        segments = list(segments)
+        text = " ".join(seg.text for seg in segments).strip()
+        if return_segments:
+            return text, [(seg.start, seg.end, seg.text.strip(), getattr(seg, 'avg_logprob', 0.0)) for seg in segments], info
+        return text
     else:
         import whisper as _whisper
-        result = model.transcribe(audio_path)
-        return result.get("text", "").strip()
+        result = model.transcribe(audio_path, language=language)
+        text = result.get("text", "").strip()
+        if return_segments:
+            segs = []
+            for s in result.get("segments", []):
+                segs.append((s.get('start', 0), s.get('end', 0), s.get('text', '').strip(), s.get('avg_logprob', 0.0)))
+            return text, segs, None
+        return text
 
 
 def get_device():
@@ -84,15 +126,20 @@ def get_compute_type(device):
     return "float16" if device == "cuda" else "int8"
 
 
-def load_whisper_model(model_name="small.en"):
-    if USE_FASTER:
+def load_whisper_model(model_name="small.en", device=None):
+    if device is None:
         device = get_device()
+    if USE_FASTER:
         return WhisperModel(model_name, compute_type=get_compute_type(device)), device
     else:
         import whisper
-        device = get_device()
         model = whisper.load_model(model_name, device=device)
         return model, device
+
+
+def video_hash(url, title=""):
+    raw = f"{url}|{title}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 
 def normalize_transcript(text):
@@ -222,10 +269,10 @@ def extract_gemini_bullets(transcript, category, api_key=None):
         client = genai.Client(api_key=api_key)
         cleaned_transcript = normalize_transcript(transcript)
 
-        prompt = f"""You are an expert health and peptide protocol research analyst. Your job is to extract highly accurate, specific, and actionable summaries from transcripts of short video clips.
+        prompt = f"""You are an expert health and peptide protocol research analyst. Extract highly accurate, specific, and actionable summaries.
 
-Here is an example of a high-quality manual summary:
-Transcript: "Today's episode is the best things I've learned from my own experiments on myself and my own research for anybody who wants to get more out of their peptides or is thinking about starting. Starting with what's probably the most important to anyone who's just getting started, inflammation is the killer of all peptides. The whole reason we inject peptides instead of nasal sprays or aurals is to get a systematic benefit, meaning our entire body. This is why I recommend almost everybody start with BPC and TB500 to make sure your body can actually receive the signals your peptides are trying to send. You have to take a collagen supplement."
+Example:
+Transcript: "Today's episode is the best things I've learned from my own experiments for anybody who wants to get more out of their peptides. Starting with what's most important to anyone just getting started, inflammation is the killer of all peptides. The whole reason we inject peptides instead of nasal sprays is to get a systematic benefit, meaning our entire body. This is why I recommend almost everybody start with BPC and TB500 to make sure your body can actually receive the signals your peptides are trying to send. You have to take a collagen supplement."
 Category: Peptide Protocol
 Summary:
 - **Compounds mentioned**: BPC-157, TB-500
@@ -233,12 +280,12 @@ Summary:
 - **Loading Phase Recommendation**: Recommends starting with BPC-157 and TB-500 to clear inflammation so the body can receive other peptide signals.
 - **Collagen co-factor**: Emphasizes that you must take a collagen supplement alongside these peptides.
 
-Now, analyze the following video transcript and category, and generate a similar, high-quality, structured summary. Do not include conversational filler, meta-text, or intros (like "This video discusses..."). Focus purely on the compounds, protocols, dosing, and actionable advice.
+Analyze this transcript and generate a similar structured summary. No filler or meta-text.
 
 Transcript: "{cleaned_transcript}"
 Category: {category}
 
-Return the summary as a list of bullet points starting directly with `- `. Make each bullet point concise and clear. If a compound has a specific dose mentioned, make sure to include it.
+Return bullets starting with `- `. Include doses if mentioned.
 """
         response = client.models.generate_content(
             model='gemini-2.5-flash',
@@ -258,6 +305,48 @@ Return the summary as a list of bullet points starting directly with `- `. Make 
         return None
 
 
+def extract_gemini_protocols(transcript, category, api_key=None):
+    if not HAS_GENAI:
+        return None
+    if not api_key:
+        api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        return None
+
+    try:
+        client = genai.Client(api_key=api_key)
+        cleaned = normalize_transcript(transcript)
+
+        prompt = f"""Analyze this transcript and extract structured protocol data for each compound mentioned.
+
+Transcript: "{cleaned}"
+Category: {category}
+
+Return a JSON array where each entry has:
+- "compound": exact compound name
+- "dose": dosage with unit if mentioned, or null
+- "timing": when to take (e.g., "morning", "bedtime", "empty stomach"), or null
+- "route": injection method if mentioned (e.g., "subq", "intranasal"), or null
+- "frequency": how often (e.g., "daily", "BID", "5 days on/2 off"), or null
+- "notes": any important caveats or co-factors, or null
+- "confidence": "high", "medium", or "low" based on how clearly stated
+
+Return ONLY valid JSON, no markdown fences.
+"""
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
+        text = response.text.strip()
+        if text.startswith("```"):
+            text = re.sub(r"^```(?:json)?\n?", "", text)
+            text = re.sub(r"\n?```$", "", text)
+        return json.loads(text)
+    except Exception as e:
+        print(f"Error extracting protocols: {e}", file=sys.stderr)
+        return None
+
+
 def extract_fallback_bullets(transcript, category):
     normalized = normalize_transcript(transcript)
     sentences = re.split(r'(?<=[.!?])\s+', normalized.strip())
@@ -271,8 +360,8 @@ def extract_fallback_bullets(transcript, category):
         r"wasting\s+my\s+money", r"this\s+is\s+what\s+i've\s+been\s+trying",
         r"caught\s+dead\s+going\s+for\s+a", r"sooner\s+be\s+caught",
         r"why\s+are\s+you\s+doing\s+this", r"you\s+guys\s+know",
-        r"i\s+figured\s+it\s+out", r"i\s+got\s+some\s+good",
-        r"it's\s+happening", r"i'm\s+gonna\s+be\s+right\s+back"
+        r"^i\s+figured\s+it\s+out", r"^i\s+got\s+some\s+good",
+        r"it's\s+happening", r"^i'm\s+gonna\s+be\s+right\s+back"
     ]
 
     for sent in sentences:
@@ -284,13 +373,8 @@ def extract_fallback_bullets(transcript, category):
             continue
         clean_sentences.append(sent)
 
-    compounds = ['BPC-157', 'TB-500', 'GHK-Cu', 'KPV', 'Pinealon', 'Epitalon',
-                 'FOXO4-DRI', 'Selank', 'Semax', 'MOTS-c', 'Retatrutide', 'Tirzepatide',
-                 'Semaglutide', 'Tesamorelin', 'Ipamorelin', 'TRT', 'Testosterone',
-                 'Glutathione', 'NAD+', 'Sermorelin', 'Dihexa', 'DSIP', 'Melanotan']
-
     compounds_found = []
-    for c in compounds:
+    for c in COMPOUNDS:
         if re.search(r'\b' + re.escape(c.lower()) + r'\b', normalized.lower()):
             compounds_found.append(c)
 
@@ -309,7 +393,7 @@ def extract_fallback_bullets(transcript, category):
 
     for sent in clean_sentences:
         sent_lower = sent.lower()
-        has_compound = any(re.search(r'\b' + re.escape(c.lower()) + r'\b', sent_lower) for c in compounds)
+        has_compound = any(re.search(r'\b' + re.escape(c.lower()) + r'\b', sent_lower) for c in COMPOUNDS)
         has_action = any(re.search(r'\b' + re.escape(act) + r'\b', sent_lower) for act in action_keywords)
 
         if has_compound and has_action:
@@ -340,6 +424,81 @@ def extract_fallback_bullets(transcript, category):
     return bullets
 
 
+def extract_fallback_protocols(transcript):
+    normalized = normalize_transcript(transcript)
+    protocols = []
+    seen = set()
+
+    dose_patterns = [
+        r'(\d+(?:\.\d+)?)\s*(?:mcg|mg|g|ml|iu|units?)',
+        r'(\d+(?:\.\d+)?)\s*micrograms?',
+        r'(\d+(?:\.\d+)?)\s*milligrams?',
+    ]
+
+    timing_patterns = [
+        r'(?:morning|evening|night|bedtime|before bed|upon waking|empty stomach|post.?workout|pre.?workout)',
+        r'(?:daily|twice daily|BID|TID|once daily|every other day|5 days on)',
+    ]
+
+    route_patterns = [
+        r'(?:subcutaneous|subq|intramuscular|IM|intranasal|oral|topical)',
+    ]
+
+    for c in COMPOUNDS:
+        pattern = r'\b' + re.escape(c.lower()) + r'\b'
+        for m in re.finditer(pattern, normalized.lower()):
+            start = max(0, m.start() - 200)
+            end = min(len(normalized), m.end() + 200)
+            context = normalized[start:end]
+            key = c.lower()
+            if key in seen:
+                continue
+            seen.add(key)
+
+            dose = None
+            for pat in dose_patterns:
+                dm = re.search(pat, context, re.IGNORECASE)
+                if dm:
+                    dose = dm.group(0).strip()
+                    break
+
+            timing = None
+            for pat in timing_patterns:
+                tm = re.search(pat, context, re.IGNORECASE)
+                if tm:
+                    timing = tm.group(0).strip()
+                    break
+
+            route = None
+            for pat in route_patterns:
+                rm = re.search(pat, context, re.IGNORECASE)
+                if rm:
+                    route = rm.group(0).strip()
+                    break
+
+            protocol = {
+                "compound": c,
+                "dose": dose,
+                "timing": timing,
+                "route": route,
+                "frequency": None,
+                "notes": None,
+                "confidence": "high" if dose or timing else "low"
+            }
+            protocols.append(protocol)
+
+    return protocols
+
+
+def check_interactions(compounds):
+    warnings = []
+    compound_lower = {c.lower() for c in compounds}
+    for pair, msg in INTERACTION_WARNINGS:
+        if any(c.lower() in compound_lower for c in pair):
+            warnings.append({"compounds": pair, "message": msg})
+    return warnings
+
+
 def generate_topic_summary(transcript):
     sentences = re.split(r'(?<=[.!?])\s+', transcript)
     skip_intros = ['welcome back', 'if you don\'t know me', 'you guys know', 'i got some good',
@@ -363,14 +522,21 @@ def generate_topic_summary(transcript):
     return best
 
 
-def extract_suggestions(transcript, category, api_key=None):
+def extract_suggestions(transcript, category, api_key=None, return_protocols=False):
     topic = generate_topic_summary(transcript)
 
     gemini_bullets = extract_gemini_bullets(transcript, category, api_key)
     if gemini_bullets:
+        if return_protocols:
+            structured = extract_gemini_protocols(transcript, category, api_key)
+            return topic, gemini_bullets, structured
         return topic, gemini_bullets
 
-    return topic, extract_fallback_bullets(transcript, category)
+    bullets = extract_fallback_bullets(transcript, category)
+    if return_protocols:
+        structured = extract_fallback_protocols(transcript)
+        return topic, bullets, structured
+    return topic, bullets
 
 
 def extract_video_id(url):
@@ -424,3 +590,63 @@ def append_to_transcripts_file(filepath, title, url, transcript):
     except Exception as e:
         print(f"Error appending to transcripts: {e}")
 
+
+def save_srt(segments, output_path):
+    with open(output_path, 'w', encoding='utf-8') as f:
+        for i, (start, end, text, conf) in enumerate(segments, 1):
+            start_h, start_rem = divmod(start, 3600)
+            start_m, start_s = divmod(start_rem, 60)
+            start_ms = int((start_s - int(start_s)) * 1000)
+            start_s = int(start_s)
+
+            end_h, end_rem = divmod(end, 3600)
+            end_m, end_s = divmod(end_rem, 60)
+            end_ms = int((end_s - int(end_s)) * 1000)
+            end_s = int(end_s)
+
+            start_ts = f"{int(start_h):02d}:{int(start_m):02d}:{start_s:02d},{start_ms:03d}"
+            end_ts = f"{int(end_h):02d}:{int(end_m):02d}:{end_s:02d},{end_ms:03d}"
+
+            conf_label = "HIGH" if conf > -0.2 else "MEDIUM" if conf > -0.5 else "LOW"
+            f.write(f"{i}\n{start_ts} --> {end_ts}\n[{conf_label}] {text}\n\n")
+
+
+def save_vtt(segments, output_path):
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write("WEBVTT\n\n")
+        for i, (start, end, text, conf) in enumerate(segments, 1):
+            start_h, start_rem = divmod(start, 3600)
+            start_m, start_s = divmod(start_rem, 60)
+            start_ms = int((start_s - int(start_s)) * 1000)
+            start_s = int(start_s)
+
+            end_h, end_rem = divmod(end, 3600)
+            end_m, end_s = divmod(end_rem, 60)
+            end_ms = int((end_s - int(end_s)) * 1000)
+            end_s = int(end_s)
+
+            start_ts = f"{int(start_h):02d}:{int(start_m):02d}:{start_s:02d}.{start_ms:03d}"
+            end_ts = f"{int(end_h):02d}:{int(end_m):02d}:{end_s:02d}.{end_ms:03d}"
+
+            conf_label = "HIGH" if conf > -0.2 else "MEDIUM" if conf > -0.5 else "LOW"
+            f.write(f"{i}\n{start_ts} --> {end_ts}\n<{conf_label}> {text}\n\n")
+
+
+def load_job_state(state_path):
+    if not os.path.exists(state_path):
+        return {"completed": [], "failed": [], "skipped": [], "last_idx": -1}
+    try:
+        with open(state_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception:
+        return {"completed": [], "failed": [], "skipped": [], "last_idx": -1}
+
+
+def save_job_state(state_path, state):
+    os.makedirs(os.path.dirname(state_path) or '.', exist_ok=True)
+    with open(state_path, 'w', encoding='utf-8') as f:
+        json.dump(state, f, indent=2)
+
+
+def is_in_state(video_id, state):
+    return video_id in state.get("completed", []) or video_id in state.get("failed", [])
