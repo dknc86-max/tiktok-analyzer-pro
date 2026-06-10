@@ -95,12 +95,17 @@ def analyze_profile_background(job_id, target, api_key=None, max_videos=50):
         extracted_data = []
 
         download_queue = Queue(maxsize=2)
+        skipped_count = 0
 
         def prefetch_worker():
+            nonlocal skipped_count
+            import time as _time
+
             for idx, entry in enumerate(entries):
                 video_url = entry.get('url') or entry.get('webpage_url')
                 if not video_url:
                     download_queue.put(None)
+                    skipped_count += 1
                     continue
                 title = entry.get('title', f"Video {idx+1}")
 
@@ -110,20 +115,65 @@ def analyze_profile_background(job_id, target, api_key=None, max_videos=50):
                     continue
 
                 audio_path = f"tmp_audio_{job_id}_{idx}.mp3"
-                try:
-                    dl_opts = {
-                        'format': 'bestaudio/best',
-                        'outtmpl': audio_path,
-                        'quiet': True,
-                        'socket_timeout': 15,
-                        'retries': 3,
-                        'nocheckcertificate': True,
-                    }
-                    with yt_dlp.YoutubeDL(dl_opts) as ydl:
-                        ydl.download([video_url])
+                max_retries = 3
+                success = False
+
+                for attempt in range(max_retries):
+                    try:
+                        # Clean up partial file from previous attempt
+                        for ext in ['', '.part', '.ytdl']:
+                            p = audio_path + ext
+                            if os.path.exists(p):
+                                os.remove(p)
+
+                        dl_opts = {
+                            'format': 'bestaudio/best',
+                            'outtmpl': audio_path,
+                            'quiet': True,
+                            'no_warnings': True,
+                            'socket_timeout': 20,
+                            'retries': 5,
+                            'fragment_retries': 5,
+                            'extractor_retries': 3,
+                            'file_access_retries': 3,
+                            'http_chunk_size': 10485760,  # 10MB chunks
+                            'nocheckcertificate': True,
+                            'noprogress': True,
+                        }
+                        with yt_dlp.YoutubeDL(dl_opts) as ydl:
+                            ydl.download([video_url])
+
+                        if os.path.exists(audio_path) and os.path.getsize(audio_path) > 0:
+                            success = True
+                            break
+
+                    except Exception as e:
+                        err_msg = str(e).lower()
+                        is_retriable = any(k in err_msg for k in [
+                            'broken pipe', 'errno 32', 'connection reset',
+                            'timed out', 'timeout', 'incomplete read',
+                            'connection aborted', 'eof occurred',
+                        ])
+                        if is_retriable and attempt < max_retries - 1:
+                            backoff = (attempt + 1) * 2
+                            _time.sleep(backoff)
+                            continue
+                        break
+
+                if success:
                     download_queue.put((idx, title, video_url, audio_path, None))
-                except Exception:
+                else:
+                    skipped_count += 1
+                    # Clean up any partial files
+                    for ext in ['', '.part', '.ytdl']:
+                        p = audio_path + ext
+                        if os.path.exists(p):
+                            try:
+                                os.remove(p)
+                            except OSError:
+                                pass
                     download_queue.put(None)
+
             download_queue.put("DONE")
 
         prefetch_thread = threading.Thread(target=prefetch_worker, daemon=True)
@@ -137,6 +187,8 @@ def analyze_profile_background(job_id, target, api_key=None, max_videos=50):
 
             if item is None:
                 jobs[job_id]["progress"] = jobs[job_id].get("progress", 0) + 1
+                if skipped_count > 0:
+                    jobs[job_id]["message"] = f"Downloading... ({skipped_count} skipped due to connection errors)"
                 continue
 
             idx, title, video_url, audio_path, cached_transcript = item
@@ -144,11 +196,12 @@ def analyze_profile_background(job_id, target, api_key=None, max_videos=50):
             jobs[job_id]["current_video"] = title
 
             try:
+                skip_note = f" ({skipped_count} skipped)" if skipped_count > 0 else ""
                 if cached_transcript is not None:
-                    jobs[job_id]["message"] = f"⚡ Loading cached transcript for video {idx+1} of {total_videos}..."
+                    jobs[job_id]["message"] = f"⚡ Loading cached transcript for video {idx+1} of {total_videos}{skip_note}..."
                     transcript = cached_transcript
                 else:
-                    jobs[job_id]["message"] = f"⚡ Transcribing video {idx+1} of {total_videos}..."
+                    jobs[job_id]["message"] = f"⚡ Transcribing video {idx+1} of {total_videos}{skip_note}..."
                     transcript = transcribe_audio(model, audio_path)
                     append_to_transcripts_file(transcripts_path, title, video_url, transcript)
 
@@ -176,7 +229,8 @@ def analyze_profile_background(job_id, target, api_key=None, max_videos=50):
         prefetch_thread.join()
 
         jobs[job_id]["status"] = "completed"
-        jobs[job_id]["message"] = "Analysis complete!"
+        skip_msg = f" ({skipped_count} videos skipped due to download errors)" if skipped_count > 0 else ""
+        jobs[job_id]["message"] = f"Analysis complete! {len(extracted_data)} videos analyzed{skip_msg}."
         jobs[job_id]["results"] = extracted_data
 
     except Exception as e:
