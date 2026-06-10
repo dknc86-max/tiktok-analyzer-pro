@@ -16,12 +16,7 @@
 <body>
     <div class="container">
         <header class="main-header">
-            <div class="header-top">
-                <h1><i class="fa-brands fa-tiktok"></i> TikTok Analyzer <span class="badge">PRO</span></h1>
-                <button id="themeToggle" class="theme-toggle" title="Toggle dark/light mode">
-                    <i class="fa-solid fa-moon"></i>
-                </button>
-            </div>
+            <h1><i class="fa-brands fa-tiktok"></i> TikTok Analyzer <span class="badge">PRO</span></h1>
             <p>Extract protocols, habits, and actionable advice from any creator.</p>
         </header>
 
@@ -177,15 +172,7 @@
                 </section>
     </div>
 
-    <script>
-        (function() {
-            const saved = localStorage.getItem('tiktok-theme');
-            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-            if (saved === 'dark' || (!saved && prefersDark)) {
-                document.documentElement.setAttribute('data-theme', 'dark');
-            }
-        })();
-    </script>
+
     <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>
