@@ -14,7 +14,7 @@ from core import (
     classify_video, extract_gemini_bullets, extract_fallback_bullets,
     generate_topic_summary, extract_suggestions, extract_video_id,
     load_transcript_cache, append_to_transcripts_file, HAS_GENAI,
-    USE_FASTER, WhisperModel
+    USE_FASTER, WhisperModel, load_whisper_model
 )
 
 warnings.filterwarnings("ignore")
@@ -90,13 +90,7 @@ def analyze_profile_background(job_id, target, api_key=None, max_videos=50):
 
         cache = load_transcript_cache(transcripts_path)
 
-        if USE_FASTER:
-            model = WhisperModel("small.en", compute_type="int8")
-        else:
-            import torch
-            device = "mps" if torch.backends.mps.is_available() else "cpu"
-            import whisper
-            model = whisper.load_model("tiny.en", device=device)
+        model, device = load_whisper_model("small.en")
 
         extracted_data = []
 

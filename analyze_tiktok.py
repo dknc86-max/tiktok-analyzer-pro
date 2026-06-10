@@ -8,7 +8,8 @@ import torch
 from core import (
     get_video_entries, download_audio, normalize_transcript, classify_video,
     extract_suggestions, extract_video_id, load_transcript_cache,
-    append_to_transcripts_file, USE_FASTER, WhisperModel
+    append_to_transcripts_file, USE_FASTER, WhisperModel,
+    load_whisper_model
 )
 
 DEFAULT_TRANSCRIPTS_PATH = os.path.join(
@@ -123,12 +124,13 @@ def main():
 
     print(f"Found {len(entries)} videos. Loading Whisper model...")
 
-    device = "mps" if torch.backends.mps.is_available() else "cpu"
-    if USE_FASTER:
-        model = WhisperModel("small.en", compute_type="int8")
+    model, device = load_whisper_model("small.en")
+    if device == "cuda":
+        print("Using GPU acceleration (CUDA)")
+    elif device == "mps":
+        print("Using Apple MPS acceleration")
     else:
-        import whisper
-        model = whisper.load_model("small.en", device=device)
+        print("Using CPU (slow)")
 
     with open(transcripts_file, "w", encoding="utf-8") as f:
         f.write(f"# TikTok Transcripts for {username}\n\n")

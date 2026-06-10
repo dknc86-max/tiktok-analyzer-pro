@@ -68,6 +68,33 @@ def transcribe_audio(model, audio_path):
         return result.get("text", "").strip()
 
 
+def get_device():
+    try:
+        import torch
+        if torch.cuda.is_available():
+            return "cuda"
+        if torch.backends.mps.is_available():
+            return "mps"
+    except ImportError:
+        pass
+    return "cpu"
+
+
+def get_compute_type(device):
+    return "float16" if device == "cuda" else "int8"
+
+
+def load_whisper_model(model_name="small.en"):
+    if USE_FASTER:
+        device = get_device()
+        return WhisperModel(model_name, compute_type=get_compute_type(device)), device
+    else:
+        import whisper
+        device = get_device()
+        model = whisper.load_model(model_name, device=device)
+        return model, device
+
+
 def normalize_transcript(text):
     replacements = [
         (r'\bpenny\s+a\s+lan\b', 'Pinealon'),
