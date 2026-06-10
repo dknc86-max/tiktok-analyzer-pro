@@ -21,6 +21,18 @@ except ImportError:
     WhisperModel = None
 
 try:
+    from pydub import AudioSegment
+    HAS_PYDUB = True
+except ImportError:
+    HAS_PYDUB = False
+
+try:
+    import noisereduce as nr
+    HAS_NOISEREDUCE = True
+except ImportError:
+    HAS_NOISEREDUCE = False
+
+try:
     import imageio_ffmpeg
     ffmpeg_dir = os.path.dirname(imageio_ffmpeg.get_ffmpeg_exe())
     os.environ["PATH"] = ffmpeg_dir + os.pathsep + os.environ.get("PATH", "")
@@ -28,17 +40,65 @@ except ImportError:
     pass
 
 
-def download_audio(video_url, output_path, timeout=15, retries=3):
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'outtmpl': output_path,
-        'quiet': True,
-        'socket_timeout': timeout,
-        'retries': retries,
-        'nocheckcertificate': True,
-    }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([video_url])
+def preprocess_audio(file_path):
+    """Enhanced audio preprocessing pipeline for better transcription accuracy"""
+    if not HAS_PYDUB:
+        return file_path
+        
+    try:
+        # Load audio
+        audio = AudioSegment.from_file(file_path)
+        
+        # Normalize audio
+        target_dBFS = -20.0
+        change_in_dBFS = target_dBFS - audio.dBFS
+        audio = audio.apply_gain(change_in_dBFS)
+        
+        # Convert to mono if stereo
+        if audio.channels > 1:
+            audio = audio.set_channels(1)
+            
+        # Apply noise reduction if available
+        if HAS_NOISEREDUCE and len(audio) > 1000:  # Only for reasonable length audio
+            samples = np.array(audio.get_array_of_samples())
+            if audio.sample_width == 2:  # 16-bit
+                samples = samples.astype(np.float32) / 32768.0
+            elif audio.sample_width == 4:  # 32-bit
+                samples = samples.astype(np.float32) / 2147483648.0
+            else:
+                samples = samples.astype(np.float32) / 128.0  # 8-bit fallback
+            
+            # Reduce noise
+            reduced_noise = nr.reduce_noise(
+                y=samples, 
+                sr=audio.frame_rate,
+                prop_decrease=0.75,
+                stationary=False
+            )
+            
+            # Convert back to audio segment
+            if audio.sample_width == 2:
+                reduced_noise = (reduced_noise * 32768).astype(np.int16)
+            elif audio.sample_width == 4:
+                reduced_noise = (reduced_noise * 2147483648).astype(np.int32)
+            else:
+                reduced_noise = (reduced_noise * 128).astype(np.int8)
+                
+            audio = AudioSegment(
+                reduced_noise.tobytes(),
+                frame_rate=audio.frame_rate,
+                sample_width=audio.sample_width,
+                channels=1
+            )
+        
+        # Export to temporary file
+        temp_path = file_path.replace('.mp3', '_processed.wav').replace('.m4a', '_processed.wav')
+        audio.export(temp_path, format="wav")
+        return temp_path
+        
+    except Exception as e:
+        print(f"Audio preprocessing warning: {e}. Using original file.")
+        return file_path
 
 
 def get_video_entries(profile_url):
@@ -52,14 +112,23 @@ def get_video_entries(profile_url):
         return result.get('entries', [result])
 
 
-def transcribe_audio(model, audio_path):
+def transcribe_audio(model, audio_path, language="en", beam_size=5, vad_filter=True):
     if USE_FASTER:
-        segments, _ = model.transcribe(audio_path, language="en", beam_size=1)
-        return " ".join(seg.text for seg in segments).strip()
+        segments, info = model.transcribe(
+            audio_path, 
+            language=language, 
+            beam_size=beam_size,
+            vad_filter=vad_filter,
+            condition_on_previous_text=True
+        )
+        result = " ".join(seg.text for seg in segments).strip()
+        confidence = sum(seg.confidence for seg in segments) / len(list(segments)) if segments else 0.0
+        return result, confidence, info
     else:
         import whisper
-        result = model.transcribe(audio_path)
-        return result.get("text", "").strip()
+        result = model.transcribe(audio_path, language=language, beam_size=beam_size)
+        confidence = result.get("confidence", 0.0)
+        return result.get("text", "").strip(), confidence, None
 
 
 def normalize_transcript(text):
