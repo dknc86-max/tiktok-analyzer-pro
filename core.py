@@ -1,143 +1,68 @@
 import os
 import re
 import sys
-import json
-import glob
-import signal
-import threading
-import sqlite3
 import yt_dlp
 import warnings
 from queue import Queue
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
-from core import (
-    download_audio, get_video_entries, transcribe_audio, normalize_transcript,
-    classify_video, extract_gemini_bullets, extract_fallback_bullets,
-    generate_topic_summary, extract_suggestions, extract_video_id,
-    load_transcript_cache, append_to_transcripts_file, HAS_GENAI,
-    USE_FASTER, WhisperModel, extract_dosages, compact_transcripts_cache
-)
+try:
+    from google import genai
+    HAS_GENAI = True
+except ImportError:
+    HAS_GENAI = False
 
 warnings.filterwarnings("ignore")
 
-DEFAULT_TRANSCRIPTS_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    '..', 'transcripts.md'
-)
+try:
+    from faster_whisper import WhisperModel
+    USE_FASTER = True
+except ImportError:
+    USE_FASTER = False
+    WhisperModel = None
 
-JOB_STATE_DB_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    '..', 'job_state.db'
-)
-
-
-def get_db():
-    conn = sqlite3.connect(JOB_STATE_DB_PATH, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    return conn
+try:
+    import imageio_ffmpeg
+    ffmpeg_dir = os.path.dirname(imageio_ffmpeg.get_ffmpeg_exe())
+    os.environ["PATH"] = ffmpeg_dir + os.pathsep + os.environ.get("PATH", "")
+except ImportError:
+    pass
 
 
-def init_db():
-    conn = get_db()
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS jobs (
-            job_id TEXT PRIMARY KEY,
-            status TEXT DEFAULT 'starting',
-            progress INTEGER DEFAULT 0,
-            total INTEGER DEFAULT 0,
-            current_video TEXT DEFAULT '',
-            message TEXT DEFAULT '',
-            results_json TEXT DEFAULT '[]',
-            dosages_json TEXT DEFAULT '[]',
-            target TEXT DEFAULT '',
-            max_videos INTEGER DEFAULT 50,
-            api_key TEXT DEFAULT '',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    conn.commit()
-    conn.close()
+def download_audio(video_url, output_path, timeout=15, retries=3):
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'outtmpl': output_path,
+        'quiet': True,
+        'socket_timeout': timeout,
+        'retries': retries,
+        'nocheckcertificate': True,
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([video_url])
 
 
-init_db()
-
-
-def db_upsert_job(job_id, **kwargs):
-    conn = get_db()
-    existing = conn.execute("SELECT job_id FROM jobs WHERE job_id = ?", (job_id,)).fetchone()
-    if existing:
-        set_clause = ", ".join(f"{k} = ?" for k in kwargs)
-        values = list(kwargs.values()) + [job_id]
-        conn.execute(f"UPDATE jobs SET {set_clause} WHERE job_id = ?", values)
-    else:
-        cols = ", ".join(["job_id"] + list(kwargs.keys()))
-        placeholders = ", ".join(["?"] * (1 + len(kwargs)))
-        values = [job_id] + list(kwargs.values())
-        conn.execute(f"INSERT INTO jobs ({cols}) VALUES ({placeholders})", values)
-    conn.commit()
-    conn.close()
-
-
-def db_get_job(job_id):
-    conn = get_db()
-    row = conn.execute("SELECT * FROM jobs WHERE job_id = ?", (job_id,)).fetchone()
-    conn.close()
-    if row:
-        d = dict(row)
-        try:
-            d["results"] = json.loads(d.pop("results_json", "[]"))
-        except Exception:
-            d["results"] = []
-        try:
-            d["dosages"] = json.loads(d.pop("dosages_json", "[]"))
-        except Exception:
-            d["dosages"] = []
-        d.setdefault("target", "")
-        d.setdefault("max_videos", 50)
-        d.setdefault("api_key", "")
-        return d
-    return None
-
-
-def db_list_jobs():
-    conn = get_db()
-    rows = conn.execute("SELECT job_id, status, progress, total, message, created_at FROM jobs ORDER BY created_at DESC").fetchall()
-    conn.close()
-    return [dict(r) for r in rows]
-
-
-import json
-
-
-def cleanup_temp_files():
-    pattern = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'tmp_audio_*.mp3')
-    for f in glob.glob(pattern):
-        try:
-            os.remove(f)
-        except OSError:
-            pass
-
-def signal_handler(signum, frame):
-    cleanup_temp_files()
-    sys.exit(0)
-
-signal.signal(signal.SIGINT, signal_handler)
-signal.signal(signal.SIGTERM, signal_handler)
+def get_video_entries(profile_url):
+    ydl_opts = {
+        'extract_flat': 'in_playlist',
+        'dump_single_json': True,
+        'quiet': True,
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        result = ydl.extract_info(profile_url, download=False)
+        return result.get('entries', [result])
 
 
 def transcribe_audio(model, audio_path):
-    """Transcribe using whichever whisper engine is available."""
     if USE_FASTER:
         segments, _ = model.transcribe(audio_path, language="en", beam_size=1)
         return " ".join(seg.text for seg in segments).strip()
     else:
+        import whisper
         result = model.transcribe(audio_path)
-        return result["text"].strip()
+        return result.get("text", "").strip()
 
 
 def normalize_transcript(text):
-    """Clean up common Whisper ASR phonetics and typos for peptides and compounds."""
     replacements = [
         (r'\bpenny\s+a\s+lan\b', 'Pinealon'),
         (r'\bpenny-a-lan\b', 'Pinealon'),
@@ -208,55 +133,51 @@ def normalize_transcript(text):
 
 
 def classify_video(transcript, title):
-    """Classify video into a category based on content analysis."""
-    # Run classification on the normalized transcript for maximum accuracy!
     normalized = normalize_transcript(transcript)
     t = normalized.lower()
-    title_l = title.lower()
-    
+
     if len(normalized) < 200:
         return 'general_advice'
-        
+
     junk_indicators = ['i\'m gonna be right back', 'they don\'t break on their ass',
                        'from a man named', 'i love it! i got this feeling',
                        'blame, you\'re a little', 'manausages', 'trying and see you don\'t have to']
     if any(j in t for j in junk_indicators):
         return 'general_advice'
-        
+
     if any(x in t for x in ['peptide', 'bpc', 'tb500', 'ghk', 'ss31', 'mots-c', 'mott c', 'matsu', 'matsui', 'mat-c',
                               'sermerall', 'sermorelin', 'epitale', 'epitalon', 'foxo', 'selank', 'semax', 'kpv', 'dsip', 'd-sip',
                               'melanotan', 'milano', 'thymosin', 'pinealon', 'growth hormone']):
         if any(x in t for x in ['stack', 'protocol', 'phase', 'experiment']):
             return 'peptide_protocol'
         return 'peptide_info'
-        
+
     if any(x in t for x in ['retitatide', 'retatrutide', 'reta', 'red end', 'red and', 'hard r', 'hard-art', 'glp', 'semaglutide',
                               'tirzepatide']):
         return 'glp1_fat_loss'
-        
+
     if any(x in t for x in ['testosterone', 'trt', 'hormones', 'test is at', 'estrogen', 'clomiphine', 'enclomiphene']):
         return 'hormones'
-        
+
     if any(x in t for x in ['mitochondria', 'cellular energy', 'cellular biology', 'ampk', 'miostat']):
         return 'mitochondria'
-        
+
     if any(x in t for x in ['intermittent fasting', 'fasting', 'calorie', 'protein', 'diet', 'eating', 'macros', 'surplus']):
         return 'nutrition'
-        
+
     if any(x in t for x in ['cortisol', 'sleep', 'recovery', 'dopamine', 'mental health', 'stress', 'brain']):
         return 'wellness_mindset'
-        
+
     if any(x in t for x in ['workout', 'gym', 'muscle', 'training', 'cardio', 'exercise', 'physique']):
         return 'fitness'
-        
+
     if any(x in t for x in ['fda', 'legalized', 'industry', 'western medicine', 'doctors']):
         return 'industry_news'
-        
+
     return 'general_advice'
 
 
 def extract_gemini_bullets(transcript, category, api_key=None):
-    """Call Gemini 2.5 Flash to extract high-quality structured protocols."""
     if not HAS_GENAI:
         return None
     if not api_key:
@@ -267,7 +188,7 @@ def extract_gemini_bullets(transcript, category, api_key=None):
     try:
         client = genai.Client(api_key=api_key)
         cleaned_transcript = normalize_transcript(transcript)
-        
+
         prompt = f"""You are an expert health and peptide protocol research analyst. Your job is to extract highly accurate, specific, and actionable summaries from transcripts of short video clips.
 
 Here is an example of a high-quality manual summary:
@@ -290,7 +211,7 @@ Return the summary as a list of bullet points starting directly with `- `. Make 
             model='gemini-2.5-flash',
             contents=prompt,
         )
-        
+
         bullets = []
         for line in response.text.strip().split('\n'):
             line = line.strip()
@@ -305,10 +226,9 @@ Return the summary as a list of bullet points starting directly with `- `. Make 
 
 
 def extract_fallback_bullets(transcript, category):
-    """Extract clean, substantive bullets using pattern matching on normalized text."""
     normalized = normalize_transcript(transcript)
     sentences = re.split(r'(?<=[.!?])\s+', normalized.strip())
-    
+
     clean_sentences = []
     filler_patterns = [
         r"^today's\s+episode", r"^welcome\s+back", r"^if\s+you\s+don't\s+know",
@@ -321,7 +241,7 @@ def extract_fallback_bullets(transcript, category):
         r"i\s+figured\s+it\s+out", r"i\s+got\s+some\s+good",
         r"it's\s+happening", r"i'm\s+gonna\s+be\s+right\s+back"
     ]
-    
+
     for sent in sentences:
         sent = sent.strip()
         if not sent:
@@ -330,42 +250,42 @@ def extract_fallback_bullets(transcript, category):
         if any(re.search(pat, lower_sent) for pat in filler_patterns):
             continue
         clean_sentences.append(sent)
-        
-    compounds = ['BPC-157', 'TB-500', 'GHK-Cu', 'KPV', 'Pinealon', 'Epitalon', 
-                 'FOXO4-DRI', 'Selank', 'Semax', 'MOTS-c', 'Retatrutide', 'Tirzepatide', 
-                 'Semaglutide', 'Tesamorelin', 'Ipamorelin', 'TRT', 'Testosterone', 
+
+    compounds = ['BPC-157', 'TB-500', 'GHK-Cu', 'KPV', 'Pinealon', 'Epitalon',
+                 'FOXO4-DRI', 'Selank', 'Semax', 'MOTS-c', 'Retatrutide', 'Tirzepatide',
+                 'Semaglutide', 'Tesamorelin', 'Ipamorelin', 'TRT', 'Testosterone',
                  'Glutathione', 'NAD+', 'Sermorelin', 'Dihexa', 'DSIP', 'Melanotan']
-                 
+
     compounds_found = []
     for c in compounds:
         if re.search(r'\b' + re.escape(c.lower()) + r'\b', normalized.lower()):
             compounds_found.append(c)
-            
+
     bullets = []
-    
+
     if compounds_found:
         bullets.append(f"**Compounds mentioned**: {', '.join(compounds_found)}")
-        
-    action_keywords = ['take', 'taking', 'inject', 'injection', 'subq', 'dose', 'dosing', 
-                       'mg', 'mcg', 'milligram', 'microgram', 'stack', 'stacking', 'paired', 
-                       'combine', 'combining', 'morning', 'night', 'bed', 'daily', 'cycle', 
+
+    action_keywords = ['take', 'taking', 'inject', 'injection', 'subq', 'dose', 'dosing',
+                       'mg', 'mcg', 'milligram', 'microgram', 'stack', 'stacking', 'paired',
+                       'combine', 'combining', 'morning', 'night', 'bed', 'daily', 'cycle',
                        'week', 'month', 'fasting', 'empty stomach']
-                       
+
     protocol_sentences = []
     seen = set()
-    
+
     for sent in clean_sentences:
         sent_lower = sent.lower()
         has_compound = any(re.search(r'\b' + re.escape(c.lower()) + r'\b', sent_lower) for c in compounds)
         has_action = any(re.search(r'\b' + re.escape(act) + r'\b', sent_lower) for act in action_keywords)
-        
+
         if has_compound and has_action:
             if sent_lower[:40] not in seen:
                 seen.add(sent_lower[:40])
                 protocol_sentences.append(sent)
-                
+
     bullets.extend(protocol_sentences[:4])
-    
+
     if len(bullets) < 4:
         advice_keywords = ['should', 'need', 'must', 'recommend', 'important', 'crucial', 'key', 'tip', 'advice']
         for sent in clean_sentences:
@@ -376,23 +296,22 @@ def extract_fallback_bullets(transcript, category):
                     bullets.append(sent)
                     if len(bullets) >= 5:
                         break
-                        
+
     if len(bullets) < 2:
         for sent in clean_sentences[:3]:
             sent_lower = sent.lower()
             if sent_lower[:40] not in seen:
                 seen.add(sent_lower[:40])
                 bullets.append(sent)
-                
+
     return bullets
 
 
 def generate_topic_summary(transcript):
-    """Generate a short, meaningful topic line from the transcript."""
     sentences = re.split(r'(?<=[.!?])\s+', transcript)
     skip_intros = ['welcome back', 'if you don\'t know me', 'you guys know', 'i got some good',
                    'guys,', 'it\'s happening', 'i figured it out', 'today\'s episode']
-    
+
     best = None
     for sent in sentences[:5]:
         lower = sent.lower().strip()
@@ -401,24 +320,23 @@ def generate_topic_summary(transcript):
         if len(sent.strip()) > 20:
             best = sent.strip()
             break
-            
+
     if not best:
         best = sentences[0].strip() if sentences else "General discussion"
-        
+
     if len(best) > 120:
         best = best[:117] + '...'
-        
+
     return best
 
 
 def extract_suggestions(transcript, category, api_key=None):
-    """Dual-mode summarizer for the webapp."""
     topic = generate_topic_summary(transcript)
-    
+
     gemini_bullets = extract_gemini_bullets(transcript, category, api_key)
     if gemini_bullets:
         return topic, gemini_bullets
-        
+
     return topic, extract_fallback_bullets(transcript, category)
 
 
@@ -454,10 +372,10 @@ def load_transcript_cache(filepath):
                     url = line.replace('URL:', '').strip()
                 elif line.strip():
                     transcript_lines.append(line.strip())
-            
+
             transcript = ' '.join(transcript_lines)
             transcript = re.sub(r'\s+', ' ', transcript).strip()
-            
+
             video_id = extract_video_id(url)
             if video_id:
                 cache[video_id] = transcript
@@ -474,202 +392,160 @@ def append_to_transcripts_file(filepath, title, url, transcript):
         print(f"Error appending to transcripts: {e}")
 
 
-def analyze_profile_background(job_id, target, api_key=None, max_videos=50, resume_from=0):
-    db_upsert_job(job_id,
-        status="starting",
-        progress=resume_from,
-        total=0,
-        current_video="",
-        message="Fetching profile metadata...",
-        results_json="[]",
-        dosages_json="[]",
-        target=target,
-        max_videos=max_videos,
-        api_key=api_key or ""
+DOSAGE_COMPOUNDS = [
+    'BPC-157', 'TB-500', 'GHK-Cu', 'KPV', 'Pinealon', 'Epitalon',
+    'FOXO4-DRI', 'Selank', 'Semax', 'MOTS-c', 'Retatrutide', 'Tirzepatide',
+    'Semaglutide', 'Tesamorelin', 'Ipamorelin', 'TRT', 'Testosterone',
+    'Glutathione', 'NAD+', 'Sermorelin', 'Dihexa', 'DSIP', 'Melanotan'
+]
+
+
+def extract_dosages(transcript, source_title="", source_url=""):
+    normalized = normalize_transcript(transcript)
+    text = normalized.lower()
+
+    dose_pattern = re.compile(
+        r'(\d+(?:\.\d+)?)\s*(mg|mcg|milligrams?|micrograms?|iu|units?|grams?|g)',
+        re.IGNORECASE
+    )
+    route_pattern = re.compile(
+        r'\b(subq|subcutaneous|oral|nasal|topical|injection|spray|intramuscular|im)\b',
+        re.IGNORECASE
+    )
+    freq_pattern = re.compile(
+        r'\b(once|twice|daily|weekly|monthly|per\s+day|per\s+week|per\s+month|morning|night|bedtime)\b',
+        re.IGNORECASE
     )
 
-    transcripts_path = DEFAULT_TRANSCRIPTS_PATH
+    results = []
+    seen = set()
 
-    try:
-        if not target.startswith("http"):
-            if not target.startswith("@"):
-                target = "@" + target
-            profile_url = f"https://www.tiktok.com/{target}"
-        else:
-            profile_url = target
+    for comp in DOSAGE_COMPOUNDS:
+        comp_lower = comp.lower()
+        if not re.search(r'\b' + re.escape(comp_lower) + r'\b', text):
+            continue
 
-        ydl_opts = {
-            'extract_flat': 'in_playlist',
-            'dump_single_json': True,
-            'quiet': True,
-        }
+        comp_positions = [m.start() for m in re.finditer(r'\b' + re.escape(comp_lower) + r'\b', text)]
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            result = ydl.extract_info(profile_url, download=False)
-            entries = result.get('entries', [result])
+        for pos in comp_positions:
+            window_start = max(0, pos - 200)
+            window_end = min(len(normalized), pos + 200)
+            window = normalized[window_start:window_end]
 
-        if not entries:
-            db_upsert_job(job_id, status="error", message="No videos found. Check the profile URL.")
-            return
-
-        if max_videos and max_videos > 0:
-            entries = entries[:max_videos]
-
-        total_videos = len(entries)
-        db_upsert_job(job_id, status="transcribing", total=total_videos,
-                       message=f"Found {total_videos} videos. Loading AI model...")
-
-        cache = load_transcript_cache(transcripts_path)
-
-        if os.path.getsize(transcripts_path) > 10 * 1024 * 1024:
-            compact_transcripts_cache(transcripts_path)
-
-        if USE_FASTER:
-            model = WhisperModel("tiny.en", compute_type="int8")
-        else:
-            import torch
-            device = "mps" if torch.backends.mps.is_available() else "cpu"
-            import whisper
-            model = whisper.load_model("tiny.en", device=device)
-
-        extracted_data = []
-        extracted_dosages = []
-
-        download_queue = Queue(maxsize=2)
-
-        def prefetch_worker():
-            for idx, entry in enumerate(entries):
-                if idx < resume_from:
-                    download_queue.put(None)
-                    continue
-                video_url = entry.get('url') or entry.get('webpage_url')
-                if not video_url:
-                    download_queue.put(None)
-                    continue
-                title = entry.get('title', f"Video {idx+1}")
-
-                video_id = extract_video_id(video_url)
-                if video_id and video_id in cache:
-                    download_queue.put((idx, title, video_url, None, cache[video_id]))
-                    continue
-
-                audio_path = f"tmp_audio_{job_id}_{idx}.mp3"
-                try:
-                    dl_opts = {
-                        'format': 'bestaudio/best',
-                        'outtmpl': audio_path,
-                        'quiet': True,
-                        'socket_timeout': 15,
-                        'retries': 3,
-                        'nocheckcertificate': True,
-                    }
-                    with yt_dlp.YoutubeDL(dl_opts) as ydl:
-                        ydl.download([video_url])
-                    download_queue.put((idx, title, video_url, audio_path, None))
-                except Exception:
-                    download_queue.put(None)
-            download_queue.put("DONE")
-
-        prefetch_thread = threading.Thread(target=prefetch_worker, daemon=True)
-        prefetch_thread.start()
-
-        skipped = 0
-        while True:
-            item = download_queue.get()
-
-            if item == "DONE":
-                break
-
-            if item is None:
-                skipped += 1
+            dose_match = dose_pattern.search(window)
+            if not dose_match:
                 continue
 
-            idx, title, video_url, audio_path, cached_transcript = item
-            db_upsert_job(job_id, progress=idx + 1, current_video=title)
+            dose = dose_match.group(1)
+            unit = dose_match.group(2).lower()
+            if unit in ('grams?', 'g'):
+                unit = 'g'
+            elif unit in ('milligrams?', 'mg'):
+                unit = 'mg'
+            elif unit in ('micrograms?', 'mcg'):
+                unit = 'mcg'
+            elif unit in ('units?', 'iu'):
+                unit = unit.upper()
 
+            route_match = route_pattern.search(window)
+            route = route_match.group(1).lower() if route_match else ""
+            if route == 'subcutaneous':
+                route = 'subq'
+            elif route == 'intramuscular':
+                route = 'im'
+
+            freq_match = freq_pattern.search(window)
+            frequency = freq_match.group(1).lower() if freq_match else ""
+
+            key = (comp, dose, unit, route, frequency)
+            if key in seen:
+                continue
+            seen.add(key)
+
+            results.append({
+                "compound": comp,
+                "dose": dose,
+                "unit": unit,
+                "route": route,
+                "frequency": frequency,
+                "source_title": source_title,
+                "source_url": source_url
+            })
+
+    return results
+
+
+def compact_transcripts_cache(filepath, max_age_days=90):
+    if not os.path.exists(filepath):
+        return False
+
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+        last_compacted_match = re.search(r'# Last compacted:\s*(\S+)', content)
+        if last_compacted_match:
+            from datetime import datetime
             try:
-                if cached_transcript is not None:
-                    db_upsert_job(job_id, message=f"⚡ Loading cached transcript for video {idx+1} of {total_videos}...")
-                    transcript = cached_transcript
-                else:
-                    db_upsert_job(job_id, message=f"⚡ Transcribing video {idx+1} of {total_videos}...")
-                    transcript = transcribe_audio(model, audio_path)
-                    append_to_transcripts_file(transcripts_path, title, video_url, transcript)
+                last_compacted = datetime.fromisoformat(last_compacted_match.group(1))
+                if (datetime.now() - last_compacted).days < max_age_days:
+                    return False
+            except ValueError:
+                pass
 
-                transcript = re.sub(r'\s+', ' ', transcript)
+        lines = content.split('\n')
+        header_lines = []
+        body_start = 0
+        for i, line in enumerate(lines):
+            if line.startswith('## '):
+                body_start = i
+                break
+            header_lines.append(line)
 
-                if len(transcript) > 150 and "song" not in transcript.lower():
-                    category = classify_video(transcript, title)
-                    topic, suggestions = extract_suggestions(transcript, category, api_key)
-                    dosages = extract_dosages(transcript, title, video_url)
+        blocks = content.split('\n## ')[1:]
+        seen_ids = set()
+        new_blocks = []
+        orphan_count = 0
 
-                    extracted_data.append({
-                        "title": title,
-                        "url": video_url,
-                        "topic": topic,
-                        "category": category,
-                        "suggestions": suggestions,
-                        "transcript": transcript
-                    })
-                    extracted_dosages.extend(dosages)
+        for block in blocks:
+            block_lines = block.strip().split('\n')
+            if not block_lines:
+                continue
+            title = block_lines[0].strip()
+            url = ""
+            for bl in block_lines[1:]:
+                if bl.startswith('URL:'):
+                    url = bl.replace('URL:', '').strip()
+                    break
 
-            except Exception as e:
-                print(f"Error on video {idx+1}: {e}")
-            finally:
-                if audio_path and os.path.exists(audio_path):
-                    os.remove(audio_path)
+            video_id = extract_video_id(url)
+            if video_id:
+                if video_id in seen_ids:
+                    orphan_count += 1
+                    continue
+                seen_ids.add(video_id)
+            else:
+                if title in seen_ids:
+                    orphan_count += 1
+                    continue
+                seen_ids.add(title)
 
-        prefetch_thread.join()
+            new_blocks.append(f"## {block.strip()}")
 
-        db_upsert_job(job_id,
-            status="completed",
-            message="Analysis complete!",
-            results_json=json.dumps(extracted_data),
-            dosages_json=json.dumps(extracted_dosages)
-        )
+        if orphan_count == 0:
+            return False
 
+        from datetime import datetime
+        new_header = header_lines.copy()
+        new_header = [l for l in new_header if not l.startswith('# Last compacted:')]
+        new_header.append(f"# Last compacted: {datetime.now().isoformat()}")
+
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(new_header) + '\n\n')
+            for b in new_blocks:
+                f.write(b + '\n\n')
+
+        return True
     except Exception as e:
-        db_upsert_job(job_id, status="error", message=str(e))
-
-
-def start_analysis(target, api_key=None, max_videos=50):
-    job_id = re.sub(r'[^a-zA-Z0-9]', '_', target.lower())
-
-    existing = db_get_job(job_id)
-    if existing and existing.get("status") in ("completed", "error", "transcribing"):
-        resume_from = existing.get("progress", 0) if existing.get("status") == "error" else 0
-        thread = threading.Thread(target=analyze_profile_background, args=(job_id, target, api_key, max_videos, resume_from))
-        thread.start()
-    elif not existing:
-        thread = threading.Thread(target=analyze_profile_background, args=(job_id, target, api_key, max_videos, 0))
-        thread.start()
-
-    return job_id
-
-
-def get_job_status(job_id):
-    job = db_get_job(job_id)
-    if not job:
-        return {"status": "not_found", "message": "Job not found"}
-    job.pop("job_id", None)
-    return job
-
-
-def list_jobs():
-    return db_list_jobs()
-
-
-def resume_job(job_id):
-    job = db_get_job(job_id)
-    if not job:
-        return None
-    if job.get("status") not in ("error", "transcribing"):
-        return None
-    resume_from = job.get("progress", 0)
-    target = job.get("target", job_id)
-    api_key = job.get("api_key")
-    max_videos = job.get("max_videos", 50)
-    db_upsert_job(job_id, status="starting", message="Resuming analysis...")
-    thread = threading.Thread(target=analyze_profile_background, args=(job_id, target, api_key, max_videos, resume_from))
-    thread.start()
-    return job_id
+        print(f"Error compacting transcripts cache: {e}")
+        return False

@@ -621,6 +621,182 @@ select option {
     text-transform: none;
 }
 
+/* Dark Mode */
+[data-theme="dark"] {
+    --bg-color: #0F172A;
+    --panel-bg: #1E293B;
+    --panel-border: #334155;
+    --text-primary: #F1F5F9;
+    --text-secondary: #94A3B8;
+    --accent-primary: #22C55E;
+    --accent-secondary: #4ADE80;
+    --accent-glow: #22C55E;
+    --accent-glow-secondary: #86EFAC;
+    --accent-solid: #22C55E;
+    --accent-yellow: #FACC15;
+    --accent-black: #F8FAFC;
+    --success: #10B981;
+}
+
+[data-theme="dark"] body {
+    background-color: var(--bg-color);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .glass-panel,
+[data-theme="dark"] .bento-card,
+[data-theme="dark"] .result-card,
+[data-theme="dark"] .metric-card.bento-white {
+    background: var(--panel-bg);
+    border-color: var(--panel-border);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .metric-card.bento-green {
+    background: var(--accent-primary);
+    color: #FFFFFF;
+}
+
+[data-theme="dark"] .metric-card.bento-green .metric-value,
+[data-theme="dark"] .metric-card.bento-green .metric-label,
+[data-theme="dark"] .metric-card.bento-green .metric-trend {
+    color: #FFFFFF;
+}
+
+[data-theme="dark"] .timeline-col {
+    background: #1E293B;
+    border-color: var(--panel-border);
+}
+
+[data-theme="dark"] .timeline-item {
+    background: #283548;
+    border-left-color: var(--accent-glow);
+}
+
+[data-theme="dark"] .timeline-item:hover {
+    background: #334155;
+}
+
+[data-theme="dark"] .tab-btn.active {
+    background: #172554;
+    color: var(--accent-glow);
+}
+
+[data-theme="dark"] .tab-btn {
+    color: var(--text-secondary);
+}
+
+[data-theme="dark"] .tab-btn:hover {
+    color: var(--text-primary);
+    background: #1E293B;
+}
+
+[data-theme="dark"] .view-tabs {
+    background: #334155;
+}
+
+[data-theme="dark"] .view-tab-btn.active {
+    background: var(--panel-bg);
+    color: var(--accent-glow);
+}
+
+[data-theme="dark"] .view-tab-btn {
+    color: var(--text-secondary);
+}
+
+[data-theme="dark"] .view-tab-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255,255,255,0.1);
+}
+
+[data-theme="dark"] .chart-container h3 {
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .search-box input,
+[data-theme="dark"] .api-key-group input {
+    background: var(--panel-bg);
+    border-color: var(--panel-border);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] input,
+[data-theme="dark"] select,
+[data-theme="dark"] select option {
+    background: var(--panel-bg);
+    border-color: var(--panel-border);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .metric-card:hover,
+[data-theme="dark"] .result-card:hover {
+    box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+}
+
+[data-theme="dark"] .topic-tag {
+    background: #334155;
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .suggestion-list li::before {
+    color: var(--accent-glow);
+}
+
+[data-theme="dark"] .progress-track {
+    background: #334155;
+}
+
+[data-theme="dark"] .input-group {
+    background: var(--panel-bg);
+    border-color: var(--panel-border);
+}
+
+[data-theme="dark"] .sidebar-list li::before {
+    color: var(--accent-glow);
+}
+
+[data-theme="dark"] .sidebar-list li a {
+    color: var(--accent-glow);
+}
+
+/* Theme Toggle Button */
+.theme-toggle {
+    background: transparent;
+    border: 1px solid var(--panel-border);
+    color: var(--text-secondary);
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0;
+    min-width: 40px;
+    box-shadow: none;
+    transition: all 0.2s ease;
+}
+
+.theme-toggle:hover {
+    color: var(--text-primary);
+    background: transparent;
+    box-shadow: none;
+    transform: none;
+}
+
+.header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+.main-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
 /* Charts Grid */
 .charts-grid {
     display: grid;

@@ -7,6 +7,32 @@ document.addEventListener('DOMContentLoaded', () => {
     const submitBtn = document.getElementById('submitBtn');
     const btnText = submitBtn.querySelector('.btn-text');
     const loader = submitBtn.querySelector('.loader');
+    const themeToggle = document.getElementById('themeToggle');
+    
+    function applyTheme(theme) {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('tiktok-theme', theme);
+    
+        const icon = themeToggle.querySelector('i');
+        if (icon) {
+            icon.className = theme === 'dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+        }
+    }
+
+    function initTheme() {
+        const saved = localStorage.getItem('tiktok-theme');
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const theme = saved || (prefersDark ? 'dark' : 'light');
+        applyTheme(theme);
+    }
+
+    themeToggle.addEventListener('click', () => {
+        const current = document.documentElement.getAttribute('data-theme') || 'light';
+        const next = current === 'dark' ? 'light' : 'dark';
+        applyTheme(next);
+    });
+
+    initTheme();
     
     const progressSection = document.getElementById('progressSection');
     const progressTitle = document.getElementById('progressTitle');

@@ -15,10 +15,15 @@
 </head>
 <body>
     <div class="container">
-        <header class="main-header">
+    <header class="main-header">
+        <div class="header-top">
             <h1><i class="fa-brands fa-tiktok"></i> TikTok Analyzer <span class="badge">PRO</span></h1>
-            <p>Extract protocols, habits, and actionable advice from any creator.</p>
-        </header>
+            <button id="themeToggle" class="theme-toggle" title="Toggle dark/light mode">
+                <i class="fa-solid fa-moon"></i>
+            </button>
+        </div>
+        <p>Extract protocols, habits, and actionable advice from any creator.</p>
+    </header>
 
         <section class="input-section bento-card bento-white" style="margin-bottom: 2rem;">
             <form id="analyzeForm">
@@ -45,8 +50,24 @@
                                 <button type="button" id="toggleKeyBtn">Show</button>
                             </div>
                         </div>
-            </form>
-        </section>
+                </form>
+
+                <div class="comparison-toggle" style="margin-top: 1rem;">
+                    <label class="toggle-label">
+                        <input type="checkbox" id="comparisonToggle">
+                        <span>Compare with second creator</span>
+                    </label>
+                </div>
+
+                <div id="comparisonInput" class="hidden" style="margin-top: 1rem;">
+                    <div class="input-group">
+                        <input type="text" id="targetInput2" placeholder="Second creator URL or @username" autocomplete="off">
+                        <button type="button" id="compareBtn" class="secondary-btn">
+                            <span class="btn-text">Start Comparison</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
 
                 <section id="progressSection" class="glass-panel hidden">
                     <div class="progress-header">

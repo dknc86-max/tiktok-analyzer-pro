@@ -7,3 +7,7 @@ local_bin/
 results/
 .DS_Store
 *.log
+.kilo/
+job_state.db
+tmp_audio_*.mp3
+*.part
