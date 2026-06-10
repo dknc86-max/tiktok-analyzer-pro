@@ -2,7 +2,7 @@ import os
 import sys
 import argparse
 import imageio_ffmpeg
-import whisper
+from faster_whisper import WhisperModel
 import yt_dlp
 import warnings
 import re
@@ -467,10 +467,8 @@ def main():
     if limit and limit > 0:
         entries = entries[:limit]
         
-    print(f"Found {len(entries)} videos. Loading Whisper model...")
-    import torch
-    device = "mps" if torch.backends.mps.is_available() else "cpu"
-    model = whisper.load_model("tiny.en", device=device)
+    print(f"Found {len(entries)} videos. Loading faster-whisper model (small.en) for high accuracy and speed...")
+    model = WhisperModel("small.en", device="cpu", compute_type="int8")
     
     with open(transcripts_file, "w", encoding="utf-8") as f:
         f.write(f"# TikTok Transcripts for {username}\n\n")
@@ -495,8 +493,8 @@ def main():
         audio_path = f"tmp_audio_{idx}.mp3"
         try:
             download_audio(video_url, audio_path)
-            result = model.transcribe(audio_path)
-            transcript = result["text"].strip()
+            segments, info = model.transcribe(audio_path, beam_size=5)
+            transcript = " ".join([segment.text for segment in segments]).strip()
             
             with open(transcripts_file, "a", encoding="utf-8") as f:
                 f.write(f"## {title}\nURL: {video_url}\n\n{transcript}\n\n")
