@@ -33,7 +33,7 @@ DEFAULT_TRANSCRIPTS_PATH = config.TRANSCRIPTS_FILE
 
 def cleanup_temp_files() -> None:
     """Remove temporary audio files."""
-    pattern = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tmp_audio_*.mp3")
+    pattern = os.path.join(config.TEMP_DIR, "tmp_audio_*.mp3")
     for f in glob.glob(pattern):
         try:
             os.remove(f)
@@ -202,7 +202,7 @@ def main() -> None:
             continue
 
         logger.info(f"[{idx+1}/{len(entries)}] Transcribing: {title}")
-        audio_path = f"tmp_audio_{idx}.mp3"
+        audio_path = os.path.join(config.TEMP_DIR, f"tmp_audio_{idx}.mp3")
         try:
             download_audio(video_url, audio_path)
             transcript = transcribe_audio(model, audio_path)

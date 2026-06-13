@@ -9,6 +9,7 @@ import warnings
 from queue import Queue
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
+import config
 from core import (
     download_audio, get_video_entries, transcribe_audio, normalize_transcript,
     classify_video, extract_gemini_bullets, extract_fallback_bullets,
@@ -26,7 +27,7 @@ DEFAULT_TRANSCRIPTS_PATH = os.path.join(
 
 
 def cleanup_temp_files():
-    pattern = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'tmp_audio_*.mp3')
+    pattern = os.path.join(config.TEMP_DIR, 'tmp_audio_*.mp3')
     for f in glob.glob(pattern):
         try:
             os.remove(f)
@@ -43,17 +44,29 @@ signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
 jobs = {}
+jobs_lock = threading.Lock()
+
+
+def set_job(job_id, data):
+    with jobs_lock:
+        jobs[job_id] = data
+
+
+def update_job(job_id, **kwargs):
+    with jobs_lock:
+        if job_id in jobs:
+            jobs[job_id].update(kwargs)
 
 
 def analyze_profile_background(job_id, target, api_key=None, max_videos=50):
-    jobs[job_id] = {
+    set_job(job_id, {
         "status": "starting",
         "progress": 0,
         "total": 0,
         "current_video": "",
         "message": "Fetching profile metadata...",
         "results": []
-    }
+    })
 
     transcripts_path = DEFAULT_TRANSCRIPTS_PATH
 
@@ -76,17 +89,19 @@ def analyze_profile_background(job_id, target, api_key=None, max_videos=50):
             entries = result.get('entries', [result])
 
         if not entries:
-            jobs[job_id]["status"] = "error"
-            jobs[job_id]["message"] = "No videos found. Check the profile URL."
+            update_job(job_id, status="error", message="No videos found. Check the profile URL.")
             return
 
         if max_videos and max_videos > 0:
             entries = entries[:max_videos]
 
         total_videos = len(entries)
-        jobs[job_id]["total"] = total_videos
-        jobs[job_id]["status"] = "transcribing"
-        jobs[job_id]["message"] = f"Found {total_videos} videos. Loading AI model..."
+        update_job(
+            job_id,
+            total=total_videos,
+            status="transcribing",
+            message=f"Found {total_videos} videos. Loading AI model..."
+        )
 
         cache = load_transcript_cache(transcripts_path)
 
@@ -114,7 +129,7 @@ def analyze_profile_background(job_id, target, api_key=None, max_videos=50):
                     download_queue.put((idx, title, video_url, None, cache[video_id]))
                     continue
 
-                audio_path = f"tmp_audio_{job_id}_{idx}.mp3"
+                audio_path = os.path.join(config.TEMP_DIR, f"tmp_audio_{job_id}_{idx}.mp3")
                 max_retries = 3
                 success = False
 
@@ -126,20 +141,8 @@ def analyze_profile_background(job_id, target, api_key=None, max_videos=50):
                             if os.path.exists(p):
                                 os.remove(p)
 
-                        dl_opts = {
-                            'format': 'bestaudio/best',
-                            'outtmpl': audio_path,
-                            'quiet': True,
-                            'no_warnings': True,
-                            'socket_timeout': 20,
-                            'retries': 5,
-                            'fragment_retries': 5,
-                            'extractor_retries': 3,
-                            'file_access_retries': 3,
-                            'http_chunk_size': 10485760,  # 10MB chunks
-                            'nocheckcertificate': True,
-                            'noprogress': True,
-                        }
+                        dl_opts = config.YTDL_DOWNLOAD_OPTS.copy()
+                        dl_opts['outtmpl'] = audio_path
                         with yt_dlp.YoutubeDL(dl_opts) as ydl:
                             ydl.download([video_url])
 
@@ -186,22 +189,23 @@ def analyze_profile_background(job_id, target, api_key=None, max_videos=50):
                 break
 
             if item is None:
-                jobs[job_id]["progress"] = jobs[job_id].get("progress", 0) + 1
-                if skipped_count > 0:
-                    jobs[job_id]["message"] = f"Downloading... ({skipped_count} skipped due to connection errors)"
+                with jobs_lock:
+                    current_progress = jobs[job_id].get("progress", 0)
+                    jobs[job_id]["progress"] = current_progress + 1
+                    if skipped_count > 0:
+                        jobs[job_id]["message"] = f"Downloading... ({skipped_count} skipped due to connection errors)"
                 continue
 
             idx, title, video_url, audio_path, cached_transcript = item
-            jobs[job_id]["progress"] = idx + 1
-            jobs[job_id]["current_video"] = title
+            update_job(job_id, progress=idx + 1, current_video=title)
 
             try:
                 skip_note = f" ({skipped_count} skipped)" if skipped_count > 0 else ""
                 if cached_transcript is not None:
-                    jobs[job_id]["message"] = f"⚡ Loading cached transcript for video {idx+1} of {total_videos}{skip_note}..."
+                    update_job(job_id, message=f"⚡ Loading cached transcript for video {idx+1} of {total_videos}{skip_note}...")
                     transcript = cached_transcript
                 else:
-                    jobs[job_id]["message"] = f"⚡ Transcribing video {idx+1} of {total_videos}{skip_note}..."
+                    update_job(job_id, message=f"⚡ Transcribing video {idx+1} of {total_videos}{skip_note}...")
                     transcript = transcribe_audio(model, audio_path)
                     append_to_transcripts_file(transcripts_path, title, video_url, transcript)
 
@@ -228,20 +232,25 @@ def analyze_profile_background(job_id, target, api_key=None, max_videos=50):
 
         prefetch_thread.join()
 
-        jobs[job_id]["status"] = "completed"
         skip_msg = f" ({skipped_count} videos skipped due to download errors)" if skipped_count > 0 else ""
-        jobs[job_id]["message"] = f"Analysis complete! {len(extracted_data)} videos analyzed{skip_msg}."
-        jobs[job_id]["results"] = extracted_data
+        update_job(
+            job_id,
+            status="completed",
+            message=f"Analysis complete! {len(extracted_data)} videos analyzed{skip_msg}.",
+            results=extracted_data
+        )
 
     except Exception as e:
-        jobs[job_id]["status"] = "error"
-        jobs[job_id]["message"] = str(e)
+        update_job(job_id, status="error", message=str(e))
 
 
 def start_analysis(target, api_key=None, max_videos=50):
     job_id = re.sub(r'[^a-zA-Z0-9]', '_', target.lower())
 
-    if job_id not in jobs or jobs[job_id]["status"] in ["completed", "error"]:
+    with jobs_lock:
+        is_running = job_id in jobs and jobs[job_id]["status"] not in ["completed", "error"]
+
+    if not is_running:
         thread = threading.Thread(target=analyze_profile_background, args=(job_id, target, api_key, max_videos))
         thread.start()
 
@@ -249,4 +258,9 @@ def start_analysis(target, api_key=None, max_videos=50):
 
 
 def get_job_status(job_id):
-    return jobs.get(job_id, {"status": "not_found", "message": "Job not found"})
+    with jobs_lock:
+        import copy
+        job = jobs.get(job_id)
+        if job:
+            return copy.deepcopy(job)
+        return {"status": "not_found", "message": "Job not found"}

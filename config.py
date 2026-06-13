@@ -12,11 +12,13 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).parent
 RESULTS_DIR = PROJECT_ROOT / "results"
 CACHE_DIR = PROJECT_ROOT / "cache"
+TEMP_DIR = PROJECT_ROOT / "tmp"
 TRANSCRIPTS_FILE = PROJECT_ROOT / "transcripts.md"
 
 # Create directories if they don't exist
 RESULTS_DIR.mkdir(exist_ok=True)
 CACHE_DIR.mkdir(exist_ok=True)
+TEMP_DIR.mkdir(exist_ok=True)
 
 # ============================================================================
 # API Configuration
@@ -183,3 +185,20 @@ ADVICE_KEYWORDS = [
     "tip",
     "advice",
 ]
+
+# ============================================================================
+# Centralized yt-dlp Download Options
+# ============================================================================
+YTDL_DOWNLOAD_OPTS = {
+    "format": "bestaudio/best",
+    "quiet": True,
+    "no_warnings": True,
+    "socket_timeout": DOWNLOAD_TIMEOUT,
+    "retries": DOWNLOAD_RETRIES,
+    "fragment_retries": 5,
+    "extractor_retries": 3,
+    "file_access_retries": 3,
+    "http_chunk_size": 10485760,  # 10MB chunks
+    "nocheckcertificate": DOWNLOAD_CHECK_CERTIFICATE,
+    "noprogress": True,
+}

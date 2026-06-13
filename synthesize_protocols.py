@@ -30,75 +30,7 @@ class GeminiRateLimiter:
 
 limiter = GeminiRateLimiter()
 
-# Correct transcript mishearings
-def normalize_text(text):
-    replacements = [
-        (r'\bpenny\s+a\s+lan\b', 'Pinealon'),
-        (r'\bpenny-a-lan\b', 'Pinealon'),
-        (r'\bepitale\s+on\b', 'Epitalon'),
-        (r'\bepitale\b', 'Epitalon'),
-        (r'\bepithalon\b', 'Epitalon'),
-        (r'\bfox\s+o\'?\s+four\b', 'FOXO4-DRI'),
-        (r'\bfox\s+o\s+four\b', 'FOXO4-DRI'),
-        (r'\bfoxo\s*4\b', 'FOXO4-DRI'),
-        (r'\bmotts?\s*-\s*c\b', 'MOTS-c'),
-        (r'\bmott\s+c\b', 'MOTS-c'),
-        (r'\bmat\s*-\s*c\b', 'MOTS-c'),
-        (r'\bmat\s+c\b', 'MOTS-c'),
-        (r'\bmatsui\b', 'MOTS-c'),
-        (r'\bmatsu\b', 'MOTS-c'),
-        (r'\bred\s*,?\s+f[u\*][c\*][k\*](?:ing)?\s+t(?:ide|ied)\b', 'Retatrutide'),
-        (r'\bred\s+and\b', 'Retatrutide'),
-        (r'\bred\s+end\b', 'Retatrutide'),
-        (r'\bhard\s+r\b', 'Retatrutide'),
-        (r'\bhard-art-art\b', 'Retatrutide'),
-        (r'\bhard-art\b', 'Retatrutide'),
-        (r'\bslnc\b', 'Selank'),
-        (r'\bs-l-n-c\b', 'Selank'),
-        (r'\bsalank\b', 'Selank'),
-        (r'\bthe\s+big\s+length\b', 'Selank'),
-        (r'\bc\s+max\b', 'Semax'),
-        (r'\bsermerallin\b', 'Sermorelin'),
-        (r'\bsermerall\b', 'Sermorelin'),
-        (r'\bsermerellin\b', 'Sermorelin'),
-        (r'\bsermorale\b', 'Sermorelin'),
-        (r'\bbpc\s*-\s*157\b', 'BPC-157'),
-        (r'\bbpc\s+157\b', 'BPC-157'),
-        (r'\bbpc157\b', 'BPC-157'),
-        (r'\btb\s*-\s*500\b', 'TB-500'),
-        (r'\btb\s+500\b', 'TB-500'),
-        (r'\btb500\b', 'TB-500'),
-        (r'\bghk\s*-\s*cu\b', 'GHK-Cu'),
-        (r'\bghk\s+cu\b', 'GHK-Cu'),
-        (r'\bghk-c\b', 'GHK-Cu'),
-        (r'\bghk\s+c\b', 'GHK-Cu'),
-        (r'\btessa\s+ipa\s+blend\b', 'Tesamorelin / Ipamorelin Blend'),
-        (r'\btessa\s+ipa\s+psych\b', 'Tesamorelin / Ipamorelin cycle'),
-        (r'\btessa\s+ipa\b', 'Tesamorelin / Ipamorelin'),
-        (r'\btessa\s+and\s+ipa\b', 'Tesamorelin / Ipamorelin'),
-        (r'\btess\s+and\s+ipa\b', 'Tesamorelin / Ipamorelin'),
-        (r'\btessa\s+morelana\b', 'Tesamorelin'),
-        (r'\bgrowth\s+hormones?\s+to\s+kreeti\s+gog\b', 'growth hormone secretagogue'),
-        (r'\bgrowth\s+hormones?\s+to\s+creati\s+gog\b', 'growth hormone secretagogue'),
-        (r'\bgrowth\s+hormones?\s+to\s+create\s+a\s+dog\b', 'growth hormone secretagogue'),
-        (r'\bmilano\s*-?\s*10\s+(?:too|2)\b', 'Melanotan 2'),
-        (r'\bmilano\s*-?\s*10\b', 'Melanotan'),
-        (r'\bin\s+clomophine\b', 'enclomiphene'),
-        (r'\bin\s+clomiphine\b', 'enclomiphene'),
-        (r'\bclomophine\b', 'enclomiphene'),
-        (r'\bclomiphine\b', 'enclomiphene'),
-        (r'\bfotitti\b', 'Fo-Ti'),
-        (r'\bdrop\s+the\s+zal\b', 'drop the cortisol'),
-        (r'\binfested\s+with\s+the\s+zal\b', 'infested with the cortisol'),
-        (r'\bthe\s+zal\b', 'the cortisol'),
-        (r'\bthe\s+big\s+bee\b', 'the big brain'),
-        (r'\bcrying\s+and\s+seed\s+on\s+half\s+to\b', 'Trying and See You Don\'t Have To'),
-        (r'\bthe\s+getter\s+stack\b', 'the beginner stack'),
-    ]
-    normalized = text
-    for pattern, replacement in replacements:
-        normalized = re.sub(pattern, replacement, normalized, flags=re.IGNORECASE)
-    return normalized
+from core import normalize_transcript as normalize_text, classify_video
 
 def parse_transcripts(filepath):
     if not os.path.exists(filepath):
@@ -110,6 +42,8 @@ def parse_transcripts(filepath):
     blocks = content.split('\n## ')[1:]
     for block in blocks:
         lines = block.strip().split('\n')
+        if not lines:
+            continue
         title = lines[0].strip()
         url = ""
         transcript_lines = []
@@ -122,24 +56,6 @@ def parse_transcripts(filepath):
         transcript = normalize_text(' '.join(transcript_lines))
         videos.append({'title': title, 'url': url, 'transcript': transcript})
     return videos
-
-def classify_video(transcript):
-    t = transcript.lower()
-    if len(transcript) < 200:
-        return None
-    if any(x in t for x in ['peptide', 'bpc', 'tb500', 'ghk', 'ss31', 'mots-c', 'sermerall', 'sermorelin', 'epitalon', 'foxo', 'selank', 'semax', 'kpv', 'dsip', 'melanotan', 'pinealon', 'growth hormone']):
-        if any(x in t for x in ['stack', 'protocol', 'phase', 'experiment']):
-            return 'peptide_protocol'
-        return 'peptide_info'
-    if any(x in t for x in ['retatrutide', 'retitatide', 'reta', 'red end', 'red and', 'hard r', 'hard-art', 'tirzepatide', 'semaglutide', 'glp']):
-        return 'glp1_fat_loss'
-    if any(x in t for x in ['testosterone', 'trt', 'hormones', 'estrogen', 'clomiphine', 'enclomiphene']):
-        return 'hormones'
-    if any(x in t for x in ['mitochondria', 'cellular energy', 'cellular biology', 'ampk']):
-        return 'mitochondria'
-    if any(x in t for x in ['fasting', 'calorie', 'protein', 'diet', 'eating', 'macros']):
-        return 'nutrition'
-    return 'general'
 
 def synthesize_category_with_gemini(client, category, vids):
     """Call Gemini to synthesize all transcripts in a single category."""

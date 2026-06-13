@@ -56,18 +56,18 @@ def download_audio(
         retries: Number of retry attempts (uses config default if None)
         nocheckcertificate: Whether to skip SSL certificate verification
     """
-    timeout = timeout or config.DOWNLOAD_TIMEOUT
-    retries = retries or config.DOWNLOAD_RETRIES
-    nocheckcertificate = nocheckcertificate if nocheckcertificate is not None else config.DOWNLOAD_CHECK_CERTIFICATE
+    # Build options on top of centralized config
+    ydl_opts = config.YTDL_DOWNLOAD_OPTS.copy()
+    ydl_opts["outtmpl"] = output_path
     
-    ydl_opts = {
-        "format": "bestaudio/best",
-        "outtmpl": output_path,
-        "quiet": True,
-        "socket_timeout": timeout,
-        "retries": retries,
-        "nocheckcertificate": nocheckcertificate,
-    }
+    # Apply overrides if explicitly provided
+    if timeout is not None:
+        ydl_opts["socket_timeout"] = timeout
+    if retries is not None:
+        ydl_opts["retries"] = retries
+    if nocheckcertificate is not None:
+        ydl_opts["nocheckcertificate"] = nocheckcertificate
+        
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([video_url])
 
@@ -253,6 +253,8 @@ def normalize_transcript(text: str) -> str:
         (r"\bthe\s+big\s+bee\b", "the big brain"),
         (r"\bcrying\s+and\s+seed\s+on\s+half\s+to\b", "Trying and See You Don't Have To"),
         (r"\bthe\s+getter\s+stack\b", "the beginner stack"),
+        (r"\bsemaglutide\b", "Semaglutide"),
+        (r"\btirzepatide\b", "Tirzepatide"),
     ]
     normalized = text
     for pattern, replacement in replacements:

@@ -49,7 +49,7 @@ class TestClassifyVideo:
         transcript = (
             "Today we're discussing the BPC-157 and TB-500 stack protocol. "
             "This is a comprehensive peptide protocol with specific phases and recommendations."
-        )
+        ) * 5
         result = classify_video(transcript, "Peptide Protocol")
         assert result == "peptide_protocol"
 
@@ -101,7 +101,7 @@ class TestExtractVideoId:
 
     def test_extract_video_id_from_long_number(self):
         """Test extraction of long video ID number."""
-        url = "https://vm.tiktok.com/something/7123456789012345"
+        url = "https://vm.tiktok.com/something/7123456789012345678"
         video_id = extract_video_id(url)
         assert video_id is not None
         assert len(video_id) >= 18
