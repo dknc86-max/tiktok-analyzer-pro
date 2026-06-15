@@ -133,12 +133,18 @@ def main() -> None:
         default=None,
         help="Gemini API key (uses env var if not provided)",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force download and transcription, ignoring cached items",
+    )
     args = parser.parse_args()
 
     target = args.target
     limit = args.limit
     transcripts_path = args.transcripts_path or DEFAULT_TRANSCRIPTS_PATH
     api_key = args.api_key or config.GEMINI_API_KEY
+    force_refresh = args.force
 
     if not target.startswith("http"):
         if not target.startswith("@"):
@@ -194,7 +200,7 @@ def main() -> None:
         title = entry.get("title", f"Video {idx+1}")
 
         video_id = extract_video_id(video_url)
-        if video_id and video_id in cache:
+        if not force_refresh and video_id and video_id in cache:
             logger.info(f"[{idx+1}/{len(entries)}] [CACHE HIT] Loading: {title}")
             transcript = cache[video_id]
             with open(transcripts_file, "a", encoding="utf-8") as f:

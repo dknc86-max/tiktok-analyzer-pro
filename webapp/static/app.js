@@ -59,12 +59,26 @@ document.addEventListener('DOMContentLoaded', () => {
     let dynamicTopicsList = [];
 
     // Predefined categorizations of health, routine, and peptide topics
-    const PEPTIDES_AND_HORMONES = [
+    let PEPTIDES_AND_HORMONES = [
         'BPC-157', 'TB-500', 'GHK-Cu', 'KPV', 'Pinealon', 'Epitalon', 
         'FOXO4-DRI', 'Selank', 'Semax', 'MOTS-c', 'Retatrutide', 'Tirzepatide', 
         'Semaglutide', 'Tesamorelin', 'Ipamorelin', 'TRT', 'Testosterone', 
         'Glutathione', 'NAD+', 'Sermorelin', 'Dihexa', 'DSIP', 'Melanotan'
     ];
+
+    async function fetchConfig() {
+        try {
+            const res = await fetch('/api/config');
+            const data = await res.json();
+            if (data.compounds && Array.isArray(data.compounds)) {
+                PEPTIDES_AND_HORMONES = data.compounds;
+                console.log("Synchronized compounds from server:", PEPTIDES_AND_HORMONES);
+            }
+        } catch (err) {
+            console.error("Failed to fetch server config:", err);
+        }
+    }
+    fetchConfig();
 
     const NUTRITION_KEYWORDS = [
         'Protein', 'Macros', 'Fasting', 'Intermittent Fasting', 'Diet', 
@@ -187,6 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const target = targetInput.value.trim();
         const api_key = apiKeyInput.value.trim();
         const max_videos = parseInt(maxVideosSelect.value, 10);
+        const force_refresh = document.getElementById('forceRefreshCheckbox')?.checked || false;
         if(!target) return;
 
         // Save API key to localStorage
@@ -209,7 +224,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const res = await fetch('/api/analyze', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ target, api_key, max_videos })
+                body: JSON.stringify({ target, api_key, max_videos, force_refresh })
             });
             const data = await res.json();
             
@@ -380,6 +395,12 @@ document.addEventListener('DOMContentLoaded', () => {
         downloadBtn.onclick = () => downloadMarkdown(cachedResults);
 
         // Setup synthesize button functionality
+        const protocolModal = document.getElementById('protocolModal');
+        const protocolModalBody = document.getElementById('protocolModalBody');
+        const copyProtocolBtn = document.getElementById('copyProtocolBtn');
+        const downloadProtocolBtn = document.getElementById('downloadProtocolBtn');
+        const closeProtocolBtn = document.getElementById('closeProtocolBtn');
+
         synthesizeBtn.onclick = async () => {
             const api_key = apiKeyInput.value.trim();
             const originalText = synthesizeBtn.textContent;
@@ -395,15 +416,49 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await res.json();
                 
                 if (data.markdown) {
-                    const blob = new Blob([data.markdown], { type: 'text/markdown' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `Synthesized_Master_Protocols.md`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
+                    let synthesizedMarkdown = data.markdown;
+                    protocolModalBody.innerHTML = renderMarkdownToHtml(synthesizedMarkdown);
+                    protocolModal.classList.remove('hidden');
+
+                    // Bind modal actions
+                    copyProtocolBtn.onclick = async () => {
+                        try {
+                            await navigator.clipboard.writeText(synthesizedMarkdown);
+                            const originalHTML = copyProtocolBtn.innerHTML;
+                            copyProtocolBtn.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+                            setTimeout(() => {
+                                copyProtocolBtn.innerHTML = originalHTML;
+                            }, 2000);
+                        } catch (err) {
+                            alert('Failed to copy to clipboard.');
+                        }
+                    };
+
+                    downloadProtocolBtn.onclick = () => {
+                        const blob = new Blob([synthesizedMarkdown], { type: 'text/markdown' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `Synthesized_Master_Protocols.md`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    };
+
+                    closeProtocolBtn.onclick = () => {
+                        protocolModal.classList.add('hidden');
+                    };
+
+                    // Close on window overlay click
+                    const overlayClose = (event) => {
+                        if (event.target === protocolModal) {
+                            protocolModal.classList.add('hidden');
+                            window.removeEventListener('click', overlayClose);
+                        }
+                    };
+                    window.addEventListener('click', overlayClose);
+
                 } else if (data.error) {
                     alert('Synthesis failed: ' + data.error);
                 } else {
@@ -417,6 +472,117 @@ document.addEventListener('DOMContentLoaded', () => {
                 synthesizeBtn.textContent = originalText;
             }
         };
+    }
+
+    // Client-side lightweight Markdown to HTML compiler
+    function renderMarkdownToHtml(markdown) {
+        if (!markdown) return '';
+        
+        let html = markdown;
+        
+        // Escape HTML tags first
+        html = html.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        
+        // Convert headers: ### Topic -> h4, ## Topic -> h3, # Topic -> h2
+        html = html.replace(/^### (.*$)/gim, '<h4>$1</h4>');
+        html = html.replace(/^## (.*$)/gim, '<h3>$1</h3>');
+        html = html.replace(/^# (.*$)/gim, '<h2>$1</h2>');
+        
+        // Convert horizontal rules: --- -> hr
+        html = html.replace(/^---$/gim, '<hr class="modal-hr">');
+        
+        // Convert tables
+        const lines = html.split('\n');
+        let inTable = false;
+        let tableRows = [];
+        let parsedLines = [];
+        
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (line.startsWith('|')) {
+                if (!inTable) {
+                    inTable = true;
+                    tableRows = [];
+                }
+                if (line.includes('---')) continue;
+                
+                const cells = line.split('|').slice(1, -1).map(c => c.trim());
+                tableRows.push(cells);
+            } else {
+                if (inTable) {
+                    inTable = false;
+                    let tableHtml = '<div class="table-responsive"><table class="protocol-table">';
+                    tableRows.forEach((row, rowIndex) => {
+                        tableHtml += '<tr>';
+                        row.forEach(cell => {
+                            let cellText = cell
+                                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                                .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');
+                            
+                            if (rowIndex === 0) {
+                                tableHtml += `<th>${cellText}</th>`;
+                            } else {
+                                tableHtml += `<td>${cellText}</td>`;
+                            }
+                        });
+                        tableHtml += '</tr>';
+                    });
+                    tableHtml += '</table></div>';
+                    parsedLines.push(tableHtml);
+                }
+                parsedLines.push(lines[i]);
+            }
+        }
+        
+        if (inTable) {
+            let tableHtml = '<div class="table-responsive"><table class="protocol-table">';
+            tableRows.forEach((row, rowIndex) => {
+                tableHtml += '<tr>';
+                row.forEach(cell => {
+                    let cellText = cell
+                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                        .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');
+                    if (rowIndex === 0) {
+                        tableHtml += `<th>${cellText}</th>`;
+                    } else {
+                        tableHtml += `<td>${cellText}</td>`;
+                    }
+                });
+                tableHtml += '</tr>';
+            });
+            tableHtml += '</table></div>';
+            parsedLines.push(tableHtml);
+        }
+        
+        html = parsedLines.join('\n');
+        
+        // Convert bullet lists
+        html = html.replace(/^\s*-\s+(.*?)$/gim, '<li>$1</li>');
+        html = html.replace(/^\s*\*\s+(.*?)$/gim, '<li>$1</li>');
+        
+        // Wrap bullet lists in ul tags
+        html = html.replace(/(<li>.*?<\/li>)+/gs, '<ul>$&</ul>');
+        
+        // Convert bold and italics formatting
+        html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+        
+        // Convert links: [text](url) -> <a href="url" target="_blank">text</a>
+        html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>');
+        
+        // Wrap loose text lines in paragraph tags
+        const processedLines = html.split('\n').map(line => {
+            const trimmed = line.trim();
+            if (!trimmed) return '';
+            if (trimmed.startsWith('<h') || trimmed.startsWith('<hr') || trimmed.startsWith('<div') || trimmed.startsWith('<table') || trimmed.startsWith('<tr>') || trimmed.startsWith('<th>') || trimmed.startsWith('<td>') || trimmed.startsWith('<ul') || trimmed.startsWith('<li>')) {
+                return line;
+            }
+            return `<p>${trimmed}</p>`;
+        });
+        
+        return processedLines.join('\n');
     }
 
     function highlightKeywords(text) {

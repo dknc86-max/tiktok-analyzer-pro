@@ -42,13 +42,14 @@ def analyze():
         target = data.get("target", "").strip()
         api_key = data.get("api_key", "").strip() or config.GEMINI_API_KEY
         max_videos = data.get("max_videos", 50)
+        force_refresh = data.get("force_refresh", False)
 
         if not target:
             logger.warning("Analysis request with no target")
             return jsonify({"error": "Target is required"}), 400
 
-        logger.info(f"Starting analysis for: {target}")
-        job_id = start_analysis(target, api_key=api_key, max_videos=max_videos)
+        logger.info(f"Starting analysis for: {target} (force_refresh={force_refresh})")
+        job_id = start_analysis(target, api_key=api_key, max_videos=max_videos, force_refresh=force_refresh)
         return jsonify({"job_id": job_id})
     except Exception as e:
         logger.error(f"Error in /analyze: {e}")
@@ -153,7 +154,7 @@ def get_config():
     """
     Get non-sensitive configuration info.
     
-    Returns public configuration like model names, ports, etc.
+    Returns public configuration like model names, ports, and dynamic concepts.
     """
     return jsonify(
         {
@@ -162,6 +163,11 @@ def get_config():
             "flask_host": config.FLASK_HOST,
             "gemini_model": config.GEMINI_MODEL,
             "has_gemini_key": bool(config.GEMINI_API_KEY),
+            "compounds": config.COMPOUNDS,
+            "action_keywords": config.ACTION_KEYWORDS,
+            "advice_keywords": config.ADVICE_KEYWORDS,
+            "junk_indicators": config.JUNK_INDICATORS,
+            "skip_intros": config.SKIP_INTROS,
         }
     )
 

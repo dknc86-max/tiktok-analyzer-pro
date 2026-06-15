@@ -58,7 +58,7 @@ def update_job(job_id, **kwargs):
             jobs[job_id].update(kwargs)
 
 
-def analyze_profile_background(job_id, target, api_key=None, max_videos=50):
+def analyze_profile_background(job_id, target, api_key=None, max_videos=50, force_refresh=False):
     set_job(job_id, {
         "status": "starting",
         "progress": 0,
@@ -125,7 +125,7 @@ def analyze_profile_background(job_id, target, api_key=None, max_videos=50):
                 title = entry.get('title', f"Video {idx+1}")
 
                 video_id = extract_video_id(video_url)
-                if video_id and video_id in cache:
+                if not force_refresh and video_id and video_id in cache:
                     download_queue.put((idx, title, video_url, None, cache[video_id]))
                     continue
 
@@ -244,14 +244,14 @@ def analyze_profile_background(job_id, target, api_key=None, max_videos=50):
         update_job(job_id, status="error", message=str(e))
 
 
-def start_analysis(target, api_key=None, max_videos=50):
+def start_analysis(target, api_key=None, max_videos=50, force_refresh=False):
     job_id = re.sub(r'[^a-zA-Z0-9]', '_', target.lower())
 
     with jobs_lock:
         is_running = job_id in jobs and jobs[job_id]["status"] not in ["completed", "error"]
 
     if not is_running:
-        thread = threading.Thread(target=analyze_profile_background, args=(job_id, target, api_key, max_videos))
+        thread = threading.Thread(target=analyze_profile_background, args=(job_id, target, api_key, max_videos, force_refresh))
         thread.start()
 
     return job_id
