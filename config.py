@@ -52,7 +52,7 @@ DOWNLOAD_CHECK_CERTIFICATE = os.environ.get("DOWNLOAD_CHECK_CERTIFICATE", "true"
 # ============================================================================
 # Flask Web App Configuration
 # ============================================================================
-FLASK_HOST = os.environ.get("FLASK_HOST", "localhost")
+FLASK_HOST = os.environ.get("FLASK_HOST", "127.0.0.1")
 FLASK_PORT = int(os.environ.get("FLASK_PORT", "5001"))
 FLASK_DEBUG = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
 FLASK_ENV = os.environ.get("FLASK_ENV", "production")
@@ -190,7 +190,7 @@ ADVICE_KEYWORDS = [
 # Centralized yt-dlp Download Options
 # ============================================================================
 YTDL_DOWNLOAD_OPTS = {
-    "format": "bestaudio/best",
+    "format": "download/bestaudio/best",
     "quiet": True,
     "no_warnings": True,
     "socket_timeout": DOWNLOAD_TIMEOUT,

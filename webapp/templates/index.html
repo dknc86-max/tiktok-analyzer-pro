@@ -16,6 +16,9 @@
 <body>
     <div class="container">
         <header class="main-header">
+            <button id="themeToggleBtn" class="theme-toggle-btn" type="button" title="Toggle Light/Dark Theme">
+                <i class="fa-solid fa-moon"></i>
+            </button>
             <h1><i class="fa-brands fa-tiktok"></i> TikTok Analyzer <span class="badge">PRO</span></h1>
             <p>Extract protocols, habits, and actionable advice from any creator.</p>
         </header>
@@ -68,7 +71,9 @@
                         <h2>Extracted Protocols</h2>
                         <div class="actions-group">
                             <button id="synthesizeBtn" style="background: linear-gradient(135deg, var(--accent-glow), var(--accent-glow-secondary)); border: none; margin-right: 0.5rem;">🧬 Generate Synthesized Stacks</button>
-                            <button id="downloadBtn" class="secondary-btn">Download NotebookLM File</button>
+                            <button id="downloadBtn" class="secondary-btn" style="margin-right: 0.5rem;">Download NotebookLM File</button>
+                            <button id="exportPdfBtn" class="secondary-btn" style="margin-right: 0.5rem;"><i class="fa-solid fa-file-pdf"></i> Export PDF</button>
+                            <button id="exportAnkiBtn" class="secondary-btn"><i class="fa-solid fa-cube"></i> Export Anki TSV</button>
                         </div>
                     </div>
                     
@@ -76,6 +81,7 @@
                         <button id="viewCardsBtn" class="view-tab-btn active" data-view="cards">📋 Protocol Cards</button>
                         <button id="viewInfographicsBtn" class="view-tab-btn" data-view="infographics">📊 Stats & Infographics</button>
                         <button id="viewMindmapBtn" class="view-tab-btn" data-view="mindmap">🧠 Interactive Mind Map</button>
+                        <button id="viewChatBtn" class="view-tab-btn" data-view="chat">💬 AI Chat Assistant</button>
                     </div>
 
                     <!-- 1. Cards View -->
@@ -171,6 +177,27 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- 4. AI Chat Assistant View -->
+                    <div id="chatView" class="view-panel hidden">
+                        <div class="chat-container glass-panel">
+                            <div class="chat-header">
+                                <h3>💬 AI Chat Assistant</h3>
+                                <p>Ask questions about the creator's advice, compounds, or schedules.</p>
+                            </div>
+                            <div class="chat-messages" id="chatMessages">
+                                <div class="chat-bubble assistant">
+                                    Hello! Ask me anything about the protocols extracted from this profile. I will search the transcripts and answer based on the creator's advice.
+                                </div>
+                            </div>
+                            <form id="chatForm" class="chat-input-form">
+                                <input type="text" id="chatInput" placeholder="Ask a question about the creator's routine or advice..." required autocomplete="off">
+                                <button type="submit" id="chatSendBtn">
+                                    <span>Send</span>
+                                </button>
+                            </form>
                         </div>
                     </div>
                 </section>

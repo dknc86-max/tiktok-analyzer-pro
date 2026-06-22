@@ -3,13 +3,12 @@ Flask web application for TikTok Analyzer Pro.
 Serves the web dashboard and API endpoints.
 """
 
-from flask import Flask, render_template, request, jsonify
-from logger import get_logger
 import sys
 import os
-
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
+from flask import Flask, render_template, request, jsonify
+from logger import get_logger
 from analyzer import start_analysis, get_job_status
 import config
 
@@ -146,6 +145,125 @@ def synthesize():
         return jsonify({"markdown": md})
     except Exception as e:
         logger.error(f"Error in /synthesize: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+
+def find_relevant_context(message: str, results: list, max_chars: int = 15000) -> str:
+    """
+    Find relevant transcript segments based on keywords in the message.
+    """
+    import re
+    keywords = re.findall(r'\b\w{4,15}\b', message.lower())
+    if not keywords:
+        context_parts = []
+        current_len = 0
+        for item in results:
+            part = f"Video: {item['title']}\nTranscript: {item['transcript']}\n"
+            if current_len + len(part) > max_chars:
+                break
+            context_parts.append(part)
+            current_len += len(part)
+        return "\n".join(context_parts)
+        
+    scored_items = []
+    for item in results:
+        text = (item['title'] + " " + item['transcript'] + " " + " ".join(item['suggestions'])).lower()
+        score = sum(1 for kw in keywords if kw in text)
+        if score > 0:
+            scored_items.append((score, item))
+            
+    scored_items.sort(key=lambda x: x[0], reverse=True)
+    
+    if not scored_items:
+        scored_items = [(0, item) for item in results]
+        
+    context_parts = []
+    current_len = 0
+    for _, item in scored_items:
+        part = f"Video: {item['title']}\nCategory: {item['category']}\nTakeaways: {', '.join(item['suggestions'])}\nTranscript: {item['transcript']}\n"
+        if current_len + len(part) > max_chars:
+            if context_parts:
+                break
+        context_parts.append(part)
+        current_len += len(part)
+        
+    return "\n".join(context_parts)
+
+
+@app.route("/api/chat", methods=["POST"])
+def chat():
+    """
+    Chat with a creator's transcribed protocols using Gemini or offline fallback.
+    """
+    try:
+        data = request.json or {}
+        message = data.get("message", "").strip()
+        job_id = data.get("job_id", "").strip()
+        api_key = data.get("api_key", "").strip() or config.GEMINI_API_KEY
+        
+        if not message:
+            return jsonify({"error": "Message is required"}), 400
+        if not job_id:
+            return jsonify({"error": "Job ID is required"}), 400
+            
+        status_data = get_job_status(job_id)
+        if status_data.get("status") == "not_found":
+            return jsonify({"error": "Job not found. Please analyze a profile first."}), 404
+        if status_data.get("status") != "completed":
+            return jsonify({"error": "Analysis is still in progress. Please wait until it completes."}), 400
+            
+        results = status_data.get("results", [])
+        if not results:
+            return jsonify({"error": "No transcripts available for this profile."}), 400
+            
+        context = find_relevant_context(message, results)
+        
+        from synthesize_protocols import HAS_GENAI, genai
+        
+        client = None
+        if HAS_GENAI and api_key:
+            try:
+                client = genai.Client(api_key=api_key)
+            except Exception as e:
+                logger.warning(f"Could not initialize Gemini client for chat: {e}")
+                client = None
+                
+        if client:
+            prompt = f"""You are an expert AI health and routine assistant. Your task is to answer the user's question by reference ONLY to the provided creator video transcripts, topics, and suggestions. 
+            
+Do not make up facts or protocols that are not discussed in the transcripts. Be concise, objective, and reference the specific videos by title when mentioning their recommendations.
+
+Provided Transcripts and Routine Context:
+{context}
+
+User's Question: "{message}"
+"""
+            response = client.models.generate_content(
+                model=config.GEMINI_MODEL,
+                contents=prompt,
+            )
+            reply = response.text.strip()
+        else:
+            import re
+            keywords = re.findall(r'\b\w{4,15}\b', message.lower())
+            matched_bullets = []
+            for item in results:
+                for sug in item["suggestions"]:
+                    if any(kw in sug.lower() for kw in keywords):
+                        matched_bullets.append(f"- {sug} (from \"{item['title']}\")")
+            if matched_bullets:
+                reply = "*(Offline Mode)* Here are the relevant matching protocols found in the transcripts:\n\n" + "\n".join(matched_bullets[:8])
+            else:
+                reply = "*(Offline Mode)* I couldn't find any direct matches for your question. Here is a summary of the creator's top recommendations:\n\n"
+                all_bullets = []
+                for item in results[:3]:
+                    all_bullets.append(f"**From \"{item['title']}\":**")
+                    all_bullets.extend(f"- {sug}" for sug in item["suggestions"][:2])
+                reply += "\n".join(all_bullets)
+                
+        return jsonify({"reply": reply})
+    except Exception as e:
+        logger.error(f"Error in /chat: {e}", exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 

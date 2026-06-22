@@ -25,10 +25,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const viewCardsBtn = document.getElementById('viewCardsBtn');
     const viewInfographicsBtn = document.getElementById('viewInfographicsBtn');
     const viewMindmapBtn = document.getElementById('viewMindmapBtn');
+    const viewChatBtn = document.getElementById('viewChatBtn');
     
     const cardsView = document.getElementById('cardsView');
     const infographicsView = document.getElementById('infographicsView');
     const mindmapView = document.getElementById('mindmapView');
+    const chatView = document.getElementById('chatView');
     
     const metricTotalVideos = document.getElementById('metricTotalVideos');
     const metricTotalCompounds = document.getElementById('metricTotalCompounds');
@@ -679,7 +681,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const views = {
             'cards': cardsView,
             'infographics': infographicsView,
-            'mindmap': mindmapView
+            'mindmap': mindmapView,
+            'chat': chatView
         };
 
         Object.entries(views).forEach(([name, panel]) => {
@@ -1544,9 +1547,159 @@ document.addEventListener('DOMContentLoaded', () => {
     if (viewCardsBtn) viewCardsBtn.addEventListener('click', () => switchView('cards'));
     if (viewInfographicsBtn) viewInfographicsBtn.addEventListener('click', () => switchView('infographics'));
     if (viewMindmapBtn) viewMindmapBtn.addEventListener('click', () => switchView('mindmap'));
+    if (viewChatBtn) viewChatBtn.addEventListener('click', () => switchView('chat'));
     if (closeSidebarBtn && mindmapSidebar) {
         closeSidebarBtn.addEventListener('click', () => {
             mindmapSidebar.classList.add('hidden');
         });
+    }
+
+    // --- Theme Switcher Logic ---
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
+    if (themeToggleBtn) {
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        if (savedTheme === 'dark') {
+            document.body.classList.add('dark-theme');
+            themeToggleBtn.innerHTML = '<i class="fa-solid fa-sun"></i>';
+        } else {
+            themeToggleBtn.innerHTML = '<i class="fa-solid fa-moon"></i>';
+        }
+        
+        themeToggleBtn.addEventListener('click', () => {
+            if (document.body.classList.contains('dark-theme')) {
+                document.body.classList.remove('dark-theme');
+                themeToggleBtn.innerHTML = '<i class="fa-solid fa-moon"></i>';
+                localStorage.setItem('theme', 'light');
+            } else {
+                document.body.classList.add('dark-theme');
+                themeToggleBtn.innerHTML = '<i class="fa-solid fa-sun"></i>';
+                localStorage.setItem('theme', 'dark');
+            }
+        });
+    }
+
+    // --- Export PDF Logic ---
+    const exportPdfBtn = document.getElementById('exportPdfBtn');
+    if (exportPdfBtn) {
+        exportPdfBtn.addEventListener('click', () => {
+            window.print();
+        });
+    }
+
+    // --- Export Anki Flashcards Logic ---
+    const exportAnkiBtn = document.getElementById('exportAnkiBtn');
+    if (exportAnkiBtn) {
+        exportAnkiBtn.addEventListener('click', () => {
+            if (!cachedResults || cachedResults.length === 0) {
+                alert("Please run an analysis first to get protocols.");
+                return;
+            }
+            
+            let tsvContent = "Front\tBack\n";
+            cachedResults.forEach(item => {
+                const front = `${item.title} (${item.topic})`;
+                const back = `<strong>Category:</strong> ${(item.category || 'general_advice').replace('_', ' ').toUpperCase()}<br><br><strong>Protocols & Takeaways:</strong><ul>` + 
+                             item.suggestions.map(s => `<li>${s}</li>`).join('') + 
+                             `</ul><br><a href="${item.url}">Source Video</a>`;
+                
+                const cleanFront = front.replace(/\t/g, ' ').replace(/\n/g, '<br>');
+                const cleanBack = back.replace(/\t/g, ' ').replace(/\n/g, '');
+                
+                tsvContent += `${cleanFront}\t${cleanBack}\n`;
+            });
+            
+            const blob = new Blob([tsvContent], { type: 'text/tab-separated-values;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            
+            const rawTarget = targetInput.value.trim();
+            const usernameMatch = rawTarget.match(/@([a-zA-Z0-9_.]+)/);
+            const safeName = (usernameMatch ? usernameMatch[1] : 'tiktok_creator').replace(/[^a-zA-Z0-9_]/g, '_');
+            a.download = `${safeName}_anki_protocols.tsv`;
+            
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+    }
+
+    // --- AI Chat Assistant Logic ---
+    const chatForm = document.getElementById('chatForm');
+    const chatInput = document.getElementById('chatInput');
+    const chatMessages = document.getElementById('chatMessages');
+    
+    if (chatForm && chatInput && chatMessages) {
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = chatInput.value.trim();
+            if (!message) return;
+            
+            if (!currentJobId) {
+                alert("Please analyze a profile first to chat about it.");
+                return;
+            }
+            
+            // Append user message
+            appendChatMessage(message, 'user');
+            chatInput.value = '';
+            
+            // Append typing indicator
+            const typingIndicator = appendChatTypingIndicator();
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            
+            try {
+                const api_key = apiKeyInput.value.trim();
+                const res = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message, job_id: currentJobId, api_key })
+                });
+                const data = await res.json();
+                
+                // Remove typing indicator
+                if (typingIndicator) typingIndicator.remove();
+                
+                if (data.reply) {
+                    appendChatMessage(data.reply, 'assistant');
+                } else if (data.error) {
+                    appendChatMessage("Error: " + data.error, 'assistant');
+                } else {
+                    appendChatMessage("An unknown error occurred.", 'assistant');
+                }
+            } catch (error) {
+                if (typingIndicator) typingIndicator.remove();
+                appendChatMessage("Failed to connect to the server.", 'assistant');
+            }
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        });
+        
+        function appendChatMessage(text, sender) {
+            const bubble = document.createElement('div');
+            bubble.className = `chat-bubble ${sender}`;
+            
+            if (sender === 'assistant') {
+                bubble.innerHTML = renderMarkdownToHtml(text);
+            } else {
+                bubble.textContent = text;
+            }
+            
+            chatMessages.appendChild(bubble);
+        }
+        
+        function appendChatTypingIndicator() {
+            const bubble = document.createElement('div');
+            bubble.className = 'chat-bubble assistant';
+            bubble.innerHTML = `
+                <div class="typing-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            `;
+            chatMessages.appendChild(bubble);
+            return bubble;
+        }
     }
 });

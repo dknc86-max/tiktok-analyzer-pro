@@ -74,3 +74,9 @@ instance/
 # Node (if using npm)
 node_modules/
 npm-debug.log
+
+# Scratch and local test assets
+scratch/
+local_bin/
+*.mp4
+tmp/
