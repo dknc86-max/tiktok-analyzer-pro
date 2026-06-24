@@ -5,15 +5,11 @@ Handles video download, transcription, normalization, and analysis.
 
 import os
 import re
-import sys
-import yt_dlp
 import warnings
-from queue import Queue
 from logger import get_logger
 
 import config
 
-# Import logger for this module
 logger = get_logger("core")
 
 try:
@@ -116,7 +112,6 @@ def transcribe_audio(model, audio_path: str) -> str:
         )
         return " ".join(seg.text for seg in segments).strip()
     else:
-        import whisper as _whisper
         result = model.transcribe(audio_path)
         return result.get("text", "").strip()
 

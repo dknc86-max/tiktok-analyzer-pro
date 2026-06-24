@@ -11,11 +11,9 @@ from queue import Queue
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import config
 from core import (
-    download_audio, get_video_entries, transcribe_audio, normalize_transcript,
-    classify_video, extract_gemini_bullets, extract_fallback_bullets,
-    generate_topic_summary, extract_suggestions, extract_video_id,
-    load_transcript_cache, append_to_transcripts_file, HAS_GENAI,
-    USE_FASTER, WhisperModel, load_whisper_model
+    download_audio, get_video_entries, transcribe_audio, classify_video,
+    extract_suggestions, extract_video_id, load_transcript_cache,
+    append_to_transcripts_file,
 )
 
 warnings.filterwarnings("ignore")

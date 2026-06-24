@@ -1,6 +1,4 @@
 import os
-import sys
-import imageio_ffmpeg
 
 # Inject ffmpeg binary into PATH for Whisper
 local_bin = os.path.abspath("local_bin")

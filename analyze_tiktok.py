@@ -53,13 +53,14 @@ signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
 
-def summarize_transcripts(transcripts_file: str, output_file: str) -> None:
+def summarize_transcripts(transcripts_file: str, output_file: str, api_key: str = None) -> None:
     """
     Generate summaries from raw transcripts.
     
     Args:
         transcripts_file: Input transcripts markdown file
         output_file: Output summaries markdown file
+        api_key: Optional Gemini API key for premium summaries
     """
     import re
 
@@ -96,7 +97,7 @@ def summarize_transcripts(transcripts_file: str, output_file: str) -> None:
                 continue
 
             category = classify_video(transcript, title)
-            topic, suggestions = extract_suggestions(transcript, category)
+            topic, suggestions = extract_suggestions(transcript, category, api_key)
 
             out.write(f"### [{title}]({url})\n")
             out.write(f"**Topic**: {topic}\n\n")
@@ -227,7 +228,7 @@ def main() -> None:
 
     logger.info("All videos transcribed successfully.")
 
-    summarize_transcripts(transcripts_file, summaries_file)
+    summarize_transcripts(transcripts_file, summaries_file, api_key)
     cleanup_temp_files()
     logger.info(f"Process complete! Results saved in {output_dir}/")
 
