@@ -7,21 +7,21 @@
 
 | Compound | Rationale | Dosing References | Extracted Protocol Keywords |
 | --- | --- | --- | --- |
-| **BPC-157** | Systemic inflammation clearing & healing loading phase. Highly recommended to start here. | *Not specified* | week |
+| **BPC-157** | Systemic inflammation clearing & healing loading phase. Highly recommended to start here. | *Not specified* | inject, week |
 | **TB-500** | Wound healing, tissue recovery. Stacked with BPC-157 for synergistic anti-inflammation. | *Not specified* | inject, nasal, week |
 | **GHK-Cu** | Skin repair and hair health. Requires collagen & Vitamin C as co-factors to avoid acne. | *Not specified* | *Not specified* |
 | **Pinealon** | Pineal gland/brain peptide. Used in DNA priming/rebuilding cellular output. | *Not specified* | week |
 | **Epitalon** | Telomere lengthening and anti-aging receptor priming. | *Not specified* | cycle, night, week |
 | **FOXO4-DRI** | Senolytics. Destroys and flushes out senescent (zombie) cells during deficits. | *Not specified* | week |
 | **MOTS-c** | Mitochondria replication and AMPK fat burn activator. Dramatically enhances cardio. | *Not specified* | fasting, week |
-| **Retatrutide** | Metabolic booster / GLP-1/GIP/GCGR agonist. Used to gain muscle while remaining shred. | *Not specified* | fasting, inject, morning, night, week |
+| **Retatrutide** | Metabolic booster / GLP-1/GIP/GCGR agonist. Used to gain muscle while remaining shred. | *Not specified* | cycle, daily, fasting, inject, morning, night, week |
 | **Tirzepatide** | GLP-1 agonist. Used for metabolic control and insulin sensitivity. | *Not specified* | *Not specified* |
-| **Selank** | Anxiety reduction, GABA receptor modulator. Induces calm focus. | *Not specified* | *Not specified* |
-| **Semax** | Cognitive enhancer / BDNF booster. Promotes mental clarity and memory. | *Not specified* | bed, cycle, fasting, inject, night |
+| **Selank** | Anxiety reduction, GABA receptor modulator. Induces calm focus. | *Not specified* | bed, morning, nasal, night |
+| **Semax** | Cognitive enhancer / BDNF booster. Promotes mental clarity and memory. | *Not specified* | bed, cycle, fasting, inject, morning, nasal, night, week |
 | **NAD+** | Immediate cellular energy booster, fights screen-time burnout. | *Not specified* | *Not specified* |
 | **Glutathione** | Liver detoxification. Taken proactively for anti-aging maintenance. | *Not specified* | night |
 | **DSIP** | Deep sleep inducer. Forces delta wave state before bedtime. | *Not specified* | *Not specified* |
-| **Melanotan** | Melanin production. MT1 preferred to avoid MT2's libido spikes or nausea. | *Not specified* | night |
+| **Melanotan** | Melanin production. MT1 preferred to avoid MT2's libido spikes or nausea. | *Not specified* | cycle, night |
 
 
 ---
@@ -88,7 +88,8 @@ Compiled from transcript sequence matches:
 
 ### Selank
 * *In [Screen time heinous](https://www.tiktok.com/@jacobnach/video/7647575950921714975)*: "Now, if all that fails and you're still tweaked, the ultimate hack is Selank."
-* *In [Lock in lock in lock in](https://www.tiktok.com/@jacobnach/video/7649073846229716254)*: "Not the dumb kinder, thinking about,  I'm talking about the C-Max-Selank combo."
+* *In [Drop the sol](https://www.tiktok.com/@jacobnach/video/7636444681634680094)*: "If you want the ultimate zen, the pure lean serene, a couple nasal shots, or sub-cue guy of the Selank, Selank is like nothing else."
+* *In [Drop the sol](https://www.tiktok.com/@jacobnach/video/7636444681634680094)*: "If you want the ultimate zen, the pure lean serene, a couple nasal shots, or sub-cue guy of the Selank, Selank is like nothing else."
 
 ### Semax
 * *In [Fasting is goated](https://www.tiktok.com/@jacobnach/video/7638677005143231775)*: "Intermittent fasting also stimulates our production of BDNF brain-derived naturopic factor, which is the same chemical we're trying to produce when we inject things like Semax or die hexa to improve our focus and memory."
@@ -101,6 +102,7 @@ Compiled from transcript sequence matches:
 * *In [URL: https://www.tiktok.com/@jacobnach/video/7627634747803585823]()*: "This one has Parton 16, 18 feet and glutathione."
 
 ### Melanotan
-* *In [We are so back](https://www.tiktok.com/@jacobnach/video/7611960198193761566)*: "Absolute bomb drop last night not talking about Israel or Iran much more importantly the FDA just released 14 of the 19 band peptides are back on the market for pharmaceutical melanotan I'm gonna be black This is gonna remove the biggest constraint on the peptide industry Which is a lot of people are only trusting online Chinese research companies as opposed to going from license pharmacies in the US Which means this stuff is going to really start working the problem with these online research companies is there's no actual testing It's really easy to fake purity and nobody is testing for sterility, which is the most important a lot of my favorites are on here Epitalon Semax the length GHK of course for science and your entertainment I'm gonna be aggressively experimenting with some of these I haven't tried like L."
-* *In [We are so back](https://www.tiktok.com/@jacobnach/video/7611960198193761566)*: "Absolute bomb drop last night not talking about Israel or Iran much more importantly the FDA just released 14 of the 19 band peptides are back on the market for pharmaceutical melanotan I'm gonna be black This is gonna remove the biggest constraint on the peptide industry Which is a lot of people are only trusting online Chinese research companies as opposed to going from license pharmacies in the US Which means this stuff is going to really start working the problem with these online research companies is there's no actual testing It's really easy to fake purity and nobody is testing for sterility, which is the most important a lot of my favorites are on here Epitalon Semax the length GHK of course for science and your entertainment I'm gonna be aggressively experimenting with some of these I haven't tried like L."
+* *In [Summer stack is so back #CapCut](https://www.tiktok.com/@jacobnach/video/7645013084171554079)*: "I'll be pairing that with Melanotan, once I'm trying to get dark this summer, dark is a muff, different than it's more popular, slightly freaky cousin, Melanotan 2."
+* *In [Had a scare yesterday](https://www.tiktok.com/@jacobnach/video/7631606176119000351)*: "In one shot, I did 10 times the dose of Melanotan-2."
+* *In [Had a scare yesterday](https://www.tiktok.com/@jacobnach/video/7631606176119000351)*: "In one shot, I did 10 times the dose of Melanotan-2."
 

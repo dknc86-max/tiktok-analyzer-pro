@@ -26,7 +26,7 @@ def get_video_entries(profile_url):
 
 def download_audio(video_url, output_path):
     ydl_opts = {
-        'format': 'bestaudio/best',
+        'format': 'download/bestaudio/best',
         'outtmpl': output_path,
         'quiet': True,
     }

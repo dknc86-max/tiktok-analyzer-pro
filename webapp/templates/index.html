@@ -15,15 +15,13 @@
 </head>
 <body>
     <div class="container">
-    <header class="main-header">
-        <div class="header-top">
-            <h1><i class="fa-brands fa-tiktok"></i> TikTok Analyzer <span class="badge">PRO</span></h1>
-            <button id="themeToggle" class="theme-toggle" title="Toggle dark/light mode">
+        <header class="main-header">
+            <button id="themeToggleBtn" class="theme-toggle-btn" type="button" title="Toggle Light/Dark Theme">
                 <i class="fa-solid fa-moon"></i>
             </button>
-        </div>
-        <p>Extract protocols, habits, and actionable advice from any creator.</p>
-    </header>
+            <h1><i class="fa-brands fa-tiktok"></i> TikTok Analyzer <span class="badge">PRO</span></h1>
+            <p>Extract protocols, habits, and actionable advice from any creator.</p>
+        </header>
 
         <section class="input-section bento-card bento-white" style="margin-bottom: 2rem;">
             <form id="analyzeForm">
@@ -45,29 +43,17 @@
                                     <option value="0">All Videos</option>
                                 </select>
                             </div>
+                            <div class="option-item checkbox-item" style="display: flex; align-items: center; gap: 0.5rem; margin-left: 1rem; margin-right: auto;">
+                                <input type="checkbox" id="forceRefreshCheckbox" style="cursor: pointer; width: auto; margin: 0;">
+                                <label for="forceRefreshCheckbox" style="cursor: pointer; user-select: none; font-size: 0.9rem; font-weight: 500; color: var(--text-secondary);">Force Refresh (Bypass Cache)</label>
+                            </div>
                             <div class="api-key-group">
                                 <input type="password" id="apiKeyInput" placeholder="Gemini API Key (optional - for premium summaries)" autocomplete="off">
                                 <button type="button" id="toggleKeyBtn">Show</button>
                             </div>
                         </div>
-                </form>
-
-                <div class="comparison-toggle" style="margin-top: 1rem;">
-                    <label class="toggle-label">
-                        <input type="checkbox" id="comparisonToggle">
-                        <span>Compare with second creator</span>
-                    </label>
-                </div>
-
-                <div id="comparisonInput" class="hidden" style="margin-top: 1rem;">
-                    <div class="input-group">
-                        <input type="text" id="targetInput2" placeholder="Second creator URL or @username" autocomplete="off">
-                        <button type="button" id="compareBtn" class="secondary-btn">
-                            <span class="btn-text">Start Comparison</span>
-                        </button>
-                    </div>
-                </div>
-            </section>
+            </form>
+        </section>
 
                 <section id="progressSection" class="glass-panel hidden">
                     <div class="progress-header">
@@ -85,7 +71,9 @@
                         <h2>Extracted Protocols</h2>
                         <div class="actions-group">
                             <button id="synthesizeBtn" style="background: linear-gradient(135deg, var(--accent-glow), var(--accent-glow-secondary)); border: none; margin-right: 0.5rem;">🧬 Generate Synthesized Stacks</button>
-                            <button id="downloadBtn" class="secondary-btn">Download NotebookLM File</button>
+                            <button id="downloadBtn" class="secondary-btn" style="margin-right: 0.5rem;">Download NotebookLM File</button>
+                            <button id="exportPdfBtn" class="secondary-btn" style="margin-right: 0.5rem;"><i class="fa-solid fa-file-pdf"></i> Export PDF</button>
+                            <button id="exportAnkiBtn" class="secondary-btn"><i class="fa-solid fa-cube"></i> Export Anki TSV</button>
                         </div>
                     </div>
                     
@@ -93,6 +81,7 @@
                         <button id="viewCardsBtn" class="view-tab-btn active" data-view="cards">📋 Protocol Cards</button>
                         <button id="viewInfographicsBtn" class="view-tab-btn" data-view="infographics">📊 Stats & Infographics</button>
                         <button id="viewMindmapBtn" class="view-tab-btn" data-view="mindmap">🧠 Interactive Mind Map</button>
+                        <button id="viewChatBtn" class="view-tab-btn" data-view="chat">💬 AI Chat Assistant</button>
                     </div>
 
                     <!-- 1. Cards View -->
@@ -190,9 +179,47 @@
                             </div>
                         </div>
                     </div>
+
+                    <!-- 4. AI Chat Assistant View -->
+                    <div id="chatView" class="view-panel hidden">
+                        <div class="chat-container glass-panel">
+                            <div class="chat-header">
+                                <h3>💬 AI Chat Assistant</h3>
+                                <p>Ask questions about the creator's advice, compounds, or schedules.</p>
+                            </div>
+                            <div class="chat-messages" id="chatMessages">
+                                <div class="chat-bubble assistant">
+                                    Hello! Ask me anything about the protocols extracted from this profile. I will search the transcripts and answer based on the creator's advice.
+                                </div>
+                            </div>
+                            <form id="chatForm" class="chat-input-form">
+                                <input type="text" id="chatInput" placeholder="Ask a question about the creator's routine or advice..." required autocomplete="off">
+                                <button type="submit" id="chatSendBtn">
+                                    <span>Send</span>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
                 </section>
     </div>
 
+
+    <!-- Modal for Synthesized Protocols -->
+    <div id="protocolModal" class="modal hidden">
+        <div class="modal-content glass-panel">
+            <div class="modal-header">
+                <h2>🧬 Synthesized Master Protocols</h2>
+                <div class="modal-actions">
+                    <button id="copyProtocolBtn" class="modal-btn secondary-btn"><i class="fa-regular fa-copy"></i> Copy</button>
+                    <button id="downloadProtocolBtn" class="modal-btn primary-btn"><i class="fa-solid fa-download"></i> Save File</button>
+                    <button id="closeProtocolBtn" class="modal-close-btn">&times;</button>
+                </div>
+            </div>
+            <div class="modal-body" id="protocolModalBody">
+                <!-- Rendered markdown content will be injected here -->
+            </div>
+        </div>
+    </div>
 
     <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
