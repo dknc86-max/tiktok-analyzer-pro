@@ -3,9 +3,6 @@ import sys
 import argparse
 import signal
 import glob
-import yat
-import requests
-from typing import Optional
 
 from core import (
     get_video_entries, download_audio, normalize_transcript, classify_video,
